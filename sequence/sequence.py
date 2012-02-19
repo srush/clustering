@@ -1,5 +1,6 @@
-from vector import *
 from random import *
+import numpy as np
+import scipy.linalg as linalg
 INF = 1e20
 ADVANCE = 0
 STAY = 1
@@ -23,6 +24,10 @@ class Phoneme:
   def __init__(self, name, id):
     self.name = name
     self.id = id
+
+  def name(self):
+    return self.name
+
   def __key__(self): return self.id
 
   def __repr__(self):
@@ -34,7 +39,7 @@ class Prediction:
     self.centers = centers
 
   def __repr__(self):
-    return "".join([str(phoneme) + " " + str(vec) for phoneme, vec in self.centers.iteritems()])
+    return " ".join([str(phoneme) + " " + str(vec) for phoneme, vec in self.centers.iteritems()])
 
   def for_phoneme(self, phoneme):
     return self.centers[phoneme]
@@ -43,14 +48,14 @@ class Prediction:
   def random(phoneme_set, dim):
     phoneme_centers = {}
     for phoneme in phoneme_set:
-      phoneme_centers[phoneme] = Vector([random() * 0.001 for i in range(dim)])
+      phoneme_centers[phoneme] = np.array([random() * 0.001 for i in range(dim)])
     return Prediction(phoneme_set, phoneme_centers)
 
   @staticmethod
   def maximize_likelihood(phoneme_set, classification):
     phoneme_centers = {}
     for phoneme, points in classification.iteritems():
-      phoneme_centers[phoneme] = Vector.average(list([p.point for p in points]))
+      phoneme_centers[phoneme] = sum([p.point for p in points]) / float(len(points))
     return Prediction(phoneme_set, phoneme_centers)
 
 class Sentence:
@@ -65,7 +70,7 @@ class ViterbiAlign:
     self.phoneme_set = phoneme_set
   
   def cost(self, phoneme, point):
-    return phoneme.point.difference(point).l2()
+    return linalg.norm(phoneme.point - point)
         
   def run(self, prediction, sentence, timeseries):
     m = len(sentence)
@@ -96,7 +101,7 @@ class ViterbiAlign:
     
     # Find where each of the phoneme instances was placed
     phoneme_points = {}
-    last = (m -1, n -1)
+    last = (m - 1, n - 1)
     cur = last
     map = {}
     while True:

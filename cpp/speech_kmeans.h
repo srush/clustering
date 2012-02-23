@@ -24,12 +24,17 @@ class SpeechKMeans {
     use_medians_ = use_medians;
   }
 
+  const vector<DataPoint> &centers() { return centers_; } 
+
+  SpeechSolution *MakeSolution();
 
  private:
 
   // EM.
   double Expectation(int utterance_index,
-                     vector<vector<DataPoint> > *sets);
+                     int *correctness,
+                     vector<vector<DataPoint> > *sets
+                     );
   void Maximization(const vector<vector<DataPoint> > &sets);
 
   
@@ -48,6 +53,11 @@ class SpeechKMeans {
 
   // Force medians instead of means.
   bool use_medians_;
+
+  vector<DistanceHolder *> distances_;
+
+  // The last path from the expectation state.
+  vector<vector<int> > path_;
   
 };
 

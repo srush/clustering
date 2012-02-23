@@ -25,6 +25,7 @@ class Viterbi {
     scores_[time][state] = score;
   }
 
+
  private:
   // Number of rows of the trellis.
   int num_states_;

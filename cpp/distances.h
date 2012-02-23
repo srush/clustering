@@ -3,6 +3,7 @@
 
 #include <boost/numeric/ublas/vector_sparse.hpp>
 #include <boost/numeric/ublas/io.hpp>
+#include <set>
 #include <vector>
 #include "span_chart.h"
 using namespace std;
@@ -46,7 +47,35 @@ class DistanceHolder {
     return distance_->get(start, offset)[center];
   }
 
+  bool is_distance_used(int start, int offset, int center) const {
+    return distance_->get(start, offset)[center] < (offset - start) * 5.0;
+  }
+
   double span_centroid_cost (int s, int o) const { return span_centroid_cost_[s][o]; }
+
+  bool is_pruned(int s, int o, int h) const {
+    if (s == 0) {
+      return false;
+    } 
+    return hidden_allowed_->get(s, o).find(h) == 
+      hidden_allowed_->get(s, o).end();
+  }
+
+  bool is_pruned(int s, int o) const {
+    if (o > width_limit_) {
+      return true;
+    } 
+
+    int n = time_steps_.size();
+    if (s + o >= n) {
+      return true;
+    }
+    if (s == 0) {
+      return false;
+    } 
+
+    return pruned_->get_const(s, o);
+  }
 
  private:
   int width_limit_;
@@ -56,6 +85,11 @@ class DistanceHolder {
   
   // The distance from each span to each possible center.
   SpanChart<vector <double> > *distance_;
+  SpanChart<DataPoint> *sum_points_;
+
+  // Pruning set for spans.
+  SpanChart<bool> *pruned_;
+  SpanChart<set<int> > *hidden_allowed_;
 
   // Distance between each time step to a center.
   vector<vector<double > > distance_cache_;

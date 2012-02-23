@@ -1,22 +1,22 @@
 #ifndef SPEECH_SUBGRAD_H
 #define SPEECH_SUBGRAD_H
 
-#include "cluster_subgrad.h"
+//#include "cluster_subgrad.h"
 #include "hidden_solver.h"
 #include "hmm_solver.h"
 #include "subgrad.h"
 #include "speech_problem.h"
 
 // Setup for the speech subgradient solver.
-class SpeechSubgradient : public SubgradProblem {
+class SpeechSubgradient {//: public SubgradProblem {
  public:
   SpeechSubgradient(const SpeechProblemSet &problems);
 
-  void Solve(const SubgradInfo &info, 
-             SubgradResult *result);
+  //void Solve(const SubgradInfo &info, 
+  //SubgradResult *result);
   
   // Update the weights with vector.
-  void Update(const DataPoint &data_point, double alpha);
+  //void Update(const DataPoint &data_point, double alpha);
 
   const vector<DataPoint> &centers() {
     return best_centers_;
@@ -33,7 +33,7 @@ class SpeechSubgradient : public SubgradProblem {
  private:
 
   double DualProposal(SpeechSolution *solution) const;
-  double Primal(vector<DataPoint > *centroids);
+  double Primal(SpeechSolution *solution, int round, vector<DataPoint > *centroids);
   void SetReparameterization();
   void SetReparameterization2();
 

@@ -77,7 +77,7 @@ class Utterance {
 
   // The longest length possible for phones.
   const int max_phone_length() const {
-    return 20;
+    return 15;
   }
 
   const PhonemeSet &phoneme_set() const { return phoneme_set_; }
@@ -94,6 +94,8 @@ class Utterance {
 
   // Score how close the current alignment is the correct alignment.
   int ScoreAlignment(const vector<int> &alignment) const;
+
+  vector<int> get_gold() const { return correct_divisions_;} 
 
  private:
   // The set of possble phonemes.

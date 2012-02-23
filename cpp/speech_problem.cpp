@@ -6,6 +6,7 @@
 #include "hidden_solver.h"
 #include "speech.h"
 #include "speech_problem.h"
+#include "speech_problem.h"
 #include "build/speech.pb.h"
 using namespace std;
 
@@ -33,9 +34,12 @@ SpeechProblemSet::SpeechProblemSet(const vector<Utterance *> &utterances,
     for (int i = 0; i < num_states; ++i) {
       state_to_type[i] = utterances_[u]->phones(i).id();
     }
-    cluster_problems.push_back(new ClusterProblem(num_steps,
+    ClusterProblem *problem = new ClusterProblem(num_steps,
                                                   num_states,
-                                                  state_to_type));
+                                                 state_to_type);
+    
+    problem->set_gold_segmentation(utterances_[u]->get_gold());
+    cluster_problems.push_back(problem);
   }
 
   num_hidden = centers_->size();
@@ -45,8 +49,14 @@ SpeechProblemSet::SpeechProblemSet(const vector<Utterance *> &utterances,
                                 0, //TODO, 
                                 width_limit);
   for (uint u = 0; u < utterances_.size(); ++u) {
-    cluster_problems[u]->num_hidden = num_hidden;
-    cluster_problems[u]->width_limit = width_limit;
+    cluster_problems[u]->cluster_set_ = cluster_set_;
+  }
+
+  // Allow all hidden to begin with.
+  for (int p = 0; p < num_types; ++p) {
+    for (int h = 0; h < num_hidden; ++h) {
+      cluster_set_->add_type_hidden(p, h);
+    }
   }
 
   CacheTypeOccurence();
@@ -174,13 +184,25 @@ double SpeechProblemSet::MaximizeMedians(const SpeechSolution &bad_speech_soluti
       StateLocation location = type_occurence(p, i);
       int s,e;
       bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
-      for (int i = s; i <= e; ++i) {
-        double trial = dist(utterances_[location.problem]->sequence(i), centroid) ;
+      for (int q = 0; q < centers_size(); ++q) {
+        const DataPoint &possible_center = center(q).point();
+        double trial = dist(possible_center, centroid) ;
         if (trial < best) {
-          closest = utterances_[location.problem]->sequence(i);
+          closest = possible_center;
           best = trial;
         }
       }
+      // for (int i = s; i <= e; ++i) {
+      //   double trial = dist(utterances_[location.problem]->sequence(i), centroid) ;
+      //   if (trial < best) {
+      //     closest = utterances_[location.problem]->sequence(i);
+      //     best_hidden = i;
+      //     best = trial;
+      //   }
+      // }
+      // for () {
+
+      // }
     }
     centroids->push_back(closest);
     for (int i = 0; i < type_occurence_size(p); ++i) {

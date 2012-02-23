@@ -1,6 +1,6 @@
 #include <iostream>
 #include "semimarkov.h"
-
+#include <time.h>
 #define DEBUG 0
 
 void SemiMarkov::Initialize() {
@@ -26,14 +26,17 @@ void SemiMarkov::Initialize() {
     for (int o = 0; o < width_limit_; ++o) {
       pruned_->set(s, o, false);
       scores_->get(s, o).resize(m);
+      for (int i = 0 ; i < m ; ++i) {
+        scores_->get(s, o)[i] = INF;
+      }
     }
   }
 }
 
 void SemiMarkov::ViterbiForward() {
+  clock_t start = clock();
   int n = num_timesteps_;
   int m = num_states_;
-  cerr << "Running semi-markov forward " << n << " " << m << endl;
 
   // Score the first round correctly.
   for (int t = 0; t < n + 1; ++t) {
@@ -48,7 +51,9 @@ void SemiMarkov::ViterbiForward() {
   // The main loop for each cell.
   for (int t = 0; t < n + 1; ++t) {
     for (int s = max(0, t - width_limit_ + 1); s < t; ++s) {
-      if (pruned(s, t - 1)) continue;
+      if (pruned(s, t - 1)) {
+        continue;
+      }
       for (int i = 1; i < min(t + 1, m + 1); ++i) { 
       // Find best way to transition to time t at state i.
         double local_score = score(s, t - 1, i - 1);
@@ -60,17 +65,20 @@ void SemiMarkov::ViterbiForward() {
       }
     }
   }
+  assert(best_score_[n][m] < INF);
 
   // Forward is done running.
   forward_ = true;
+  clock_t end = clock();
+
+  cerr << "Running semi-markov forward " << n << " " << m << " " << end - start << endl;
 }
 
 void SemiMarkov::ViterbiBackward() {
   assert(forward_);
-
+  clock_t start = clock();
   int n = num_timesteps_;
   int m = num_states_;
-  cerr << "Running semi-markov backward " << n << " " << m << endl;
 
   // Score the last round correctly.
   for (int t = 0; t < n + 1; ++t) {
@@ -100,6 +108,8 @@ void SemiMarkov::ViterbiBackward() {
 
   // Backward is done running.
   backward_ = true;
+  clock_t end = clock();
+  cerr << "Running semi-markov backward " << n << " " << m << " " << end - start <<endl;
 }
 
 double SemiMarkov::GetForwardScore(int state, int timestep) const {
@@ -139,11 +149,14 @@ double SemiMarkov::GetBestPath(vector<int> *path) const {
     int last_time = cur_time;
     cur_time = best_action_[cur_time][cur_state];
     assert(cur_time != -1); 
+    assert(!pruned(cur_time, last_time - 1));
     check_score += score(cur_time, last_time -1, cur_state - 1);
     path->push_back(cur_time);
     cur_state--;
   }
-  assert(fabs(total_score - check_score) < 1e-4);
+  assert((int)path->size() == num_states_ + 1);
+  cerr << total_score << " " << check_score <<endl;
+  //assert(fabs(total_score - check_score) < 1e-4);
   reverse(path->begin(), path->end());
   return total_score;
 }

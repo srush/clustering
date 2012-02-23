@@ -6,6 +6,8 @@
 #include "cluster_problem.h"
 #include "speech_solution.h"
 
+class SpeechSolution;
+
 class SpeechProblem {
 
 };
@@ -95,6 +97,24 @@ class SpeechProblemSet {
                  const BallHolder &ball_holder,
                  double *score) const;
 
+  void set_pruning(const vector<DataPoint> &centers) {
+    pruning_centers_ = centers;
+    cluster_set_->clear_hidden_types();
+    for (int p = 0; p < cluster_set_->num_types(); ++p) {
+      for (uint h = 0; h < centers_->size(); ++h) {
+        if (pruning_centers_.size() == 0 ) {
+          cluster_set_->add_type_hidden(p, h); 
+        } else if (dist(pruning_centers_[p], (*centers_)[h].point()) < 10.0) {
+          cluster_set_->add_type_hidden(p, h);
+        }
+      }
+    }
+  }
+
+  int centers_size() const { return centers_->size(); } 
+
+  const Center &center(int center_num) const { return (*centers_)[center_num]; } 
+
   /* double ApproxMaximizeMedians(const vector<vector<vector<DataPoint> > > &cluster_sets,  */
   /*                              const BallHolder &ball_holder) const; */
  private:
@@ -110,6 +130,8 @@ class SpeechProblemSet {
   vector<Center> *centers_;
 
   int num_features_;
+
+  vector<DataPoint> pruning_centers_;
 
   // State locations for each type.
   vector<vector<StateLocation> > state_locations_;

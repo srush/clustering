@@ -53,6 +53,7 @@ class SemiMarkov {
   }
 
   void set_pruned(int start, int end) {
+    assert(end - start < width_limit_);
     pruned_->set(start, end - start, true);
   }
   

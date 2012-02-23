@@ -2,7 +2,7 @@
 #define HIDDEN_SOLVER_H
 
 #include "cluster_problem.h"
-#include "cluster_subgrad.h"
+//#include "cluster_subgrad.h"
 #include "distances.h"
 #include "speech_solution.h"
 
@@ -24,27 +24,30 @@ class HiddenSolver {
     reparameterization_ = reparameterization;
 
     for (int type = 0; type < cs_.num_types(); ++type) {
-      for (int hidden = 0; hidden < cs_.num_hidden(); ++hidden) {
+      for (int hidden = 0; hidden < cs_.num_hidden(type); ++hidden) {
         hidden_costs_[type][hidden] = 0.0;
       }
     }
     for (int problem = 0; problem < cs_.problems_size(); ++problem) {
       for (int state = 0; state < cs_.problem(problem).num_states; ++state) {
         int type = cs_.problem(problem).MapState(state);
-        for (int hidden = 0; hidden < cs_.num_hidden(); ++hidden) {
+        for (int hidden = 0; hidden < cs_.num_hidden(type); ++hidden) {
           hidden_costs_[type][hidden] += 
             (*reparameterization)[problem][state][hidden];
         }
       }
     }
   }
+  /* bool is_eliminated(int type, int hidden) { */
+  /*   return eliminated_[type].find(hidden); */
+  /* } */
 
   // Compute max-marginals.
   double MaxMarginals(vector<vector<vector<double> > > *mu);
   
-      void ToSubgrad(const ClusterSet &cs, 
-                 const BallHolder &ball_holder,
-                 ClusterSubgrad *subgrad) const;
+      /* void ToSubgrad(const ClusterSet &cs,  */
+      /*            const BallHolder &ball_holder, */
+      /*            ClusterSubgrad *subgrad) const; */
 
   double Rescore(const SpeechSolution &solution) const;
 
@@ -55,8 +58,6 @@ class HiddenSolver {
                           }
                       
  private:
-  int num_types_;
-  int num_hidden_;
   
   // Has the type received an update since the last solve.
   vector<bool> type_dirty_;
@@ -70,8 +71,8 @@ class HiddenSolver {
   // The current best hidden for a type assignment. 
   vector<int> best_hidden_;
 
-                    const ClusterSet &cs_;
-                    const vector<vector<vector<double > > > *reparameterization_;
+  const ClusterSet &cs_;
+  const vector<vector<vector<double > > > *reparameterization_;
 };
 
 #endif

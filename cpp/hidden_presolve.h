@@ -33,41 +33,50 @@ class HiddenHolder {
   int get_center(int start, int offset, int state) {
     assert (state < cp_.num_states);
     assert (start < cp_.num_steps);
-    assert (offset < cp_.width_limit);
+    //assert (offset < cp_.width_limit);
     return best_hidden_->get(start, offset)[state];
   }
 
   double get_score(int start, int offset, int state) {
     assert (state < cp_.num_states);
     assert (start < cp_.num_steps);
-    assert (offset < cp_.width_limit);
+    //assert (offset < cp_.width_limit);
     return best_score_->get(start, offset)[state];
   }
 
   double get_primal_score(int start, int offset, int state) {
     assert (state < cp_.num_states);
     assert (start < cp_.num_steps);
-    assert (offset < cp_.width_limit);
+    //assert (offset < cp_.width_limit);
     return primal_score_->get(start, offset)[state];
-  }
-
-  bool pruned(int s, int o) {
-    return used_[s][o].size() == 0;
   }
 
   double Rescore(int s, int o, int state, int hidden) const {
     //cerr << cp_.MapState(state) << " " << hidden << " " << (*reparameterization_)[state][hidden] << endl;
+    int type = cp_.MapState(state);
+    int global_hidden = cp_.hidden_for_type(type, hidden);
     return
-      distances_.get_distance(s, o, hidden) + (*reparameterization_)[state][hidden];
+      distances_.get_distance(s, o, global_hidden) + (*reparameterization_)[state][hidden];
   }
 
   double PrimalRescore(int s, int o, int state, int hidden) const {
-    return distances_.get_distance(s, o, hidden);
+    int type = cp_.MapState(state);
+    int global_hidden = cp_.hidden_for_type(type, hidden);
+    return distances_.get_distance(s, o, global_hidden);
   }
 
   double hidden_costs(int state, int hidden) {
     return (*reparameterization_)[state][hidden];
   }
+  
+  bool is_pruned(int s, int o) {
+    return distances_.is_pruned(s, o);
+  }
+
+  bool is_pruned(int s, int o, int h) {
+    return distances_.is_pruned(s, o, h);
+  }
+
  private:
   const ClusterProblem &cp_;
 
@@ -85,7 +94,7 @@ class HiddenHolder {
   const DistanceHolder &distances_;
 
   // Which hidden states are allowed for a split.
-  vector<vector<vector<int> > > used_;
+  //vector<vector<vector<int> > > used_;
 
   // The cost of a state choosing a center. Assumed dynamic.
   //vector<vector <double> > hidden_costs_;

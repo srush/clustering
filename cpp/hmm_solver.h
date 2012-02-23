@@ -2,7 +2,7 @@
 #define HMM_SOLVER_H
 
 #include "cluster_problem.h"
-#include "cluster_subgrad.h"
+//#include "cluster_subgrad.h"
 #include "hidden_presolve.h"
 #include "distances.h"
 #include "semimarkov.h"
@@ -36,9 +36,9 @@ class HMMSolver {
   //}
   
   // Convert the current estimate to a subgradient.
-  void ToSubgrad(int problem, 
-                 const BallHolder &ball_holder,
-                 ClusterSubgrad *subgrad) const;
+  /* void ToSubgrad(int problem,  */
+  /*                const BallHolder &ball_holder, */
+  /*                ClusterSubgrad *subgrad) const; */
   
   double Check(int type, int hidden) {
     double check = 0.0;

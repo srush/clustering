@@ -4,6 +4,14 @@ void DistanceHolder::Initialize() {
   int n = time_steps_.size();
 
   // Build chart.
+  sum_points_ = new SpanChart<DataPoint >(time_steps_.size(), 
+                                                width_limit_);
+  pruned_ = new SpanChart<bool>(time_steps_.size(), 
+                                width_limit_);
+  
+  hidden_allowed_ = new SpanChart<set<int> >(time_steps_.size(), 
+                                        width_limit_);
+
   distance_ = new SpanChart<vector <double> >(time_steps_.size(), 
                                               width_limit_);
   for (int s = 0; s < n; ++s) {
@@ -32,19 +40,55 @@ double DistanceHolder::Distance(int time_index, int cluster_index) {
 
 void DistanceHolder::ComputeDistances() {
   int n = time_steps_.size();
+  cerr << "compute dist" << endl;
   for (uint q = 0; q < center_set_.size(); ++q) {
     for (int s = 0; s < n; ++s) {
       for (int o = 0; o < width_limit_; ++o) {
         if (s + o >= n) continue;  
-        vector <double> &centers = distance_->get(s, o);
+        vector<double> &centers = distance_->get(s, o);
         if (o == 0) {
           centers[q] = Distance(s + o, q);
         } else {
           centers[q] = distance_->get(s, o - 1)[q] + Distance(s + o, q);
         }
+        if (centers[q] / (o + 1) < 5.0) {
+          hidden_allowed_->get(s, o).insert(q);
+        } 
       }
     }
   }
+
+  for (int s = 0; s < n; ++s) {
+    for (int o = 0; o < width_limit_; ++o) {
+      if (s + o >= n) continue;  
+      if (o == 0) {
+        sum_points_->set(s, o, time_steps_[s]);
+      } else { 
+        sum_points_->set(s, o, 
+                         sum_points_->get_const(s, o - 1 ) + time_steps_[s + o]);
+      }
+    }
+  }
+
+  // Compute pruning. 
+  for (int s = 0; s < n; ++s) {
+    for (int o = 0; o < width_limit_; ++o) {
+      if (s + o >= n) continue;  
+      if (o == 0) {
+        pruned_->set(s, o, false);
+        continue;
+      }
+      double total = 0.0;
+      const DataPoint &centroid = sum_points_->get_const(s, o) / (float)o;
+      for (int o2 = 0; o2 <= o; ++o2) {
+        total += dist(centroid, time_steps_[s + o2]);
+      }
+      double average = total / (float) o; 
+      bool prune = (average > 5.0);
+      pruned_->set(s, o, prune);
+    }
+  }
+  
 }
 
 void DistanceHolder::ComputeLocalDistances() {

@@ -1,6 +1,9 @@
 #include "speech_subgrad.h"
 #include "speech_kmeans.h"
 #include <time.h>
+#include <iostream>
+#include <fstream>
+using namespace std;
 
 SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems):
   problems_(problems), cluster_problems_(problems.MakeClusterSet()),
@@ -34,42 +37,62 @@ void SpeechSubgradient::SetReparameterization2() {
   hidden_solver_->set_reparameterization(hidden_reparameterization2_);
 }
 
-void SpeechSubgradient::Update(const DataPoint &data_point, 
-                               double alpha) { 
-  clock_t start = clock();
-  ClusterSubgrad *subgrad = ClusterSubgrad::FromVector(cluster_problems_, 
-                                                       ball_holder_->balls_size(),
-                                                       data_point);
+// void SpeechSubgradient::Update(const DataPoint &data_point, 
+//                                double alpha) { 
+//   clock_t start = clock();
+//   ClusterSubgrad *subgrad = ClusterSubgrad::FromVector(cluster_problems_, 
+//                                                        ball_holder_->balls_size(),
+//                                                        data_point);
 
-  // Setup the reparameterizations.
-  for (DataPoint::const_iterator pos = data_point.begin(); 
-       pos != data_point.end();
-       ++pos) { 
-    int index = pos.index();
-    ClusterIndex cluster_index;
-    subgrad->index(index, &cluster_index);
-    double score = alpha * subgrad->score(cluster_index);
-    // Update each hidden center in the ball around "hidden".
-    int nearby_size = 
-      ball_holder_->nearby_size(cluster_index.ball, cluster_index.partition);
-    //const ClusterProblem & problem = cluster_problems_.problem(cluster_index.problem);
-    for (int i = 0; i < nearby_size; ++i) {
-      int q = ball_holder_->nearby(cluster_index.ball, cluster_index.partition, i);
-      // hmm_solvers_[cluster_index.problem]->Update(cluster_index.state, q, score);
-      // hidden_solver_->Update(problem.MapState(cluster_index.state), q, -score);
-      (*hmm_reparameterization_)[cluster_index.problem][cluster_index.state][q] += score;
-      (*hidden_reparameterization_)[cluster_index.problem][cluster_index.state][q] -= score;
-    }
-  }
-  SetReparameterization();
-  clock_t end = clock();
-  cerr << "TIME: Update time " << end - start << endl; 
-}
+//   // Setup the reparameterizations.
+//   for (DataPoint::const_iterator pos = data_point.begin(); 
+//        pos != data_point.end();
+//        ++pos) { 
+//     int index = pos.index();
+//     ClusterIndex cluster_index;
+//     subgrad->index(index, &cluster_index);
+//     double score = alpha * subgrad->score(cluster_index);
+//     // Update each hidden center in the ball around "hidden".
+//     int nearby_size = 
+//       ball_holder_->nearby_size(cluster_index.ball, cluster_index.partition);
+//     //const ClusterProblem & problem = cluster_problems_.problem(cluster_index.problem);
+//     for (int i = 0; i < nearby_size; ++i) {
+//       int q = ball_holder_->nearby(cluster_index.ball, cluster_index.partition, i);
+//       // hmm_solvers_[cluster_index.problem]->Update(cluster_index.state, q, score);
+//       // hidden_solver_->Update(problem.MapState(cluster_index.state), q, -score);
+//       (*hmm_reparameterization_)[cluster_index.problem][cluster_index.state][q] += score;
+//       (*hidden_reparameterization_)[cluster_index.problem][cluster_index.state][q] -= score;
+//     }
+//   }
+//   SetReparameterization();
+//   clock_t end = clock();
+//   cerr << "TIME: Update time " << end - start << endl; 
+// 
 
-double SpeechSubgradient::Primal(vector<DataPoint > *centroids) {
-  SpeechSolution *dual_proposal = new SpeechSolution(cluster_problems_);
-  DualProposal(dual_proposal);
+double SpeechSubgradient::Primal(SpeechSolution *dual_proposal, int round, vector<DataPoint > *centroids) {
+
+  
+  cerr << "Dual Proposal score " << dual_proposal->ScoreSolution() << endl;
   double max_medians = problems_.MaximizeMedians(*dual_proposal, centroids);
+  for (int type = 0; type < problems_.num_types(); ++type) {
+    dual_proposal->set_type_to_special(type, (*centroids)[type]);
+  }
+  
+  double dual = 0.0;
+  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+    dual += hmm_solvers_[u]->Rescore(u, *dual_proposal);
+  }
+  dual += hidden_solver_->Rescore(*dual_proposal);
+  cerr << "rescore is: " << dual << endl;
+
+  stringstream buf;
+  buf << "/tmp/last_solution" << round;
+  fstream output(buf.str().c_str(), ios::out | ios::binary);
+  speech::SpeechSolution solution;
+  dual_proposal->ToProtobuf(solution, problems_);
+  solution.SerializeToOstream(&output);
+  output.close();
+
   delete dual_proposal;
   return max_medians;
 }
@@ -95,11 +118,13 @@ double SpeechSubgradient::HiddenDualUnaryProposal(vector<vector<int> > *vars ) {
   double dual = 0.0;
   vars->resize(cluster_problems_.problems_size());
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    (*vars)[u].resize(cluster_problems_.problem(u).num_states);
-    for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
+    const ClusterProblem &problem = cluster_problems_.problem(u);
+    (*vars)[u].resize(problem.num_states);
+    for (int i = 0; i < problem.num_states; ++i) {
+      int type = problem.MapState(i);
       double best_hidden = INF;
       for (int hidden = 0; 
-           hidden < cluster_problems_.num_hidden(); 
+           hidden < cluster_problems_.num_hidden(type); 
            ++hidden) {
         double trial = 
           (*delta_hmm_)[u][i][hidden] + (*delta_hidden_)[u][i][hidden];
@@ -115,98 +140,98 @@ double SpeechSubgradient::HiddenDualUnaryProposal(vector<vector<int> > *vars ) {
 }
 
 
-void SpeechSubgradient::Solve(const SubgradInfo &info, 
-                              SubgradResult *result) {
-  result->dual_value = 0.0;
-  SetReparameterization();
+// void SpeechSubgradient::Solve(const SubgradInfo &info, 
+//                               SubgradResult *result) {
+//   result->dual_value = 0.0;
+//   SetReparameterization();
 
-  // The first problem.
-  SpeechSolution dual_proposal(cluster_problems_);
-  clock_t start = clock();
-  vector<vector<DataPoint> > cluster_set(cluster_problems_.num_types());
-  vector<vector< vector<DataPoint> > > group_cluster_set(cluster_problems_.num_types());
-  ClusterSubgrad *problem1 = new ClusterSubgrad(cluster_problems_, 
-                                                ball_holder_->balls_size());
-  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    assert(cluster_problems_.problems_size() == (int)hmm_solvers_.size());
-    cerr << "Solving HMM " << u << endl;
-    SpeechAlignment *alignment = dual_proposal.mutable_alignment(u);
-    result->dual_value += hmm_solvers_[u]->Solve(alignment);
-    hmm_solvers_[u]->ToSubgrad(u, *ball_holder_, problem1);
-    problems_.AlignmentClusterSet(u, *alignment->mutable_alignment(), &cluster_set);
-    problems_.AlignmentGroupClusterSet(u, *alignment->mutable_alignment(), &group_cluster_set);
-  }
-  clock_t end = clock();
-  cerr << "TIME: HMM Time " << end - start << endl;
+//   // The first problem.
+//   SpeechSolution dual_proposal(cluster_problems_);
+//   clock_t start = clock();
+//   vector<vector<DataPoint> > cluster_set(cluster_problems_.num_types());
+//   vector<vector< vector<DataPoint> > > group_cluster_set(cluster_problems_.num_types());
+//   ClusterSubgrad *problem1 = new ClusterSubgrad(cluster_problems_, 
+//                                                 ball_holder_->balls_size());
+//   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+//     assert(cluster_problems_.problems_size() == (int)hmm_solvers_.size());
+//     cerr << "Solving HMM " << u << endl;
+//     SpeechAlignment *alignment = dual_proposal.mutable_alignment(u);
+//     result->dual_value += hmm_solvers_[u]->Solve(alignment);
+//     hmm_solvers_[u]->ToSubgrad(u, *ball_holder_, problem1);
+//     problems_.AlignmentClusterSet(u, *alignment->mutable_alignment(), &cluster_set);
+//     problems_.AlignmentGroupClusterSet(u, *alignment->mutable_alignment(), &group_cluster_set);
+//   }
+//   clock_t end = clock();
+//   cerr << "TIME: HMM Time " << end - start << endl;
 
-  // The second problem.
-  start = clock();
-  cerr << "Solving hidden." << endl;
-  result->dual_value += hidden_solver_->Solve();
-  hidden_solver_->ToSubgrad(cluster_problems_, *ball_holder_, problem1);
-  end = clock();
-  result->subgradient = problem1->ToVector();
-  cerr << "TIME: Other Time " << end - start << endl;
-  cerr << *problem1 << endl;
+//   // The second problem.
+//   start = clock();
+//   cerr << "Solving hidden." << endl;
+//   result->dual_value += hidden_solver_->Solve();
+//   hidden_solver_->ToSubgrad(cluster_problems_, *ball_holder_, problem1);
+//   end = clock();
+//   result->subgradient = problem1->ToVector();
+//   cerr << "TIME: Other Time " << end - start << endl;
+//   cerr << *problem1 << endl;
 
-  // Estimate the primal value from the current alignment.
-  start = clock();
+//   // Estimate the primal value from the current alignment.
+//   start = clock();
   
-  vector<DataPoint> centers;
-  double max_means = problems_.MaximizeCenters(cluster_set, 
-                                               &centers);
-  if (max_means < best_means_) {
-    best_means_ = max_means;
-    best_centers_ = centers;
-  } 
-  cerr << "Primal means: " << best_means_ << " " << max_means << endl;
+//   vector<DataPoint> centers;
+//   double max_means = problems_.MaximizeCenters(cluster_set, 
+//                                                &centers);
+//   if (max_means < best_means_) {
+//     best_means_ = max_means;
+//     best_centers_ = centers;
+//   } 
+//   cerr << "Primal means: " << best_means_ << " " << max_means << endl;
 
-  double max_medians;
-  SpeechSolution *solution = 
-    problems_.ApproxMaximizeMedians(dual_proposal, 
-                                    *ball_holder_, 
-                                    &max_medians);
-  // Check solution score.
-  double primal = 0.0;
-  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    primal += hmm_solvers_[u]->PrimalRescore(u, *solution);
-  }
-  assert(fabs(primal - max_medians) < 1e-4);
+//   double max_medians;
+//   SpeechSolution *solution = 
+//     problems_.ApproxMaximizeMedians(dual_proposal, 
+//                                     *ball_holder_, 
+//                                     &max_medians);
+//   // Check solution score.
+//   double primal = 0.0;
+//   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+//     primal += hmm_solvers_[u]->PrimalRescore(u, *solution);
+//   }
+//   assert(fabs(primal - max_medians) < 1e-4);
   
-  double dual = 0.0;
-  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    dual += hmm_solvers_[u]->Rescore(u, *solution);
-  }
-  dual += hidden_solver_->Rescore(*solution);
+//   double dual = 0.0;
+//   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+//     dual += hmm_solvers_[u]->Rescore(u, *solution);
+//   }
+//   dual += hidden_solver_->Rescore(*solution);
 
-  {
-    vector<DataPoint> temp;
-    double primal_real = Primal(&temp);
-    cerr << "Primal real is: " << primal_real << endl;
-  }
+//   {
+//     vector<DataPoint> temp;
+//     double primal_real = Primal(&temp);
+//     cerr << "Primal real is: " << primal_real << endl;
+//   }
 
-  // Check dual is in sync.
-  for (int t = 0; t < cluster_problems_.num_types(); ++t) {
-    double left =0.0, right = 0.0;
-    int hidden = solution->TypeToHidden(t);
-    left += hidden_solver_->Check(t, hidden);
-    for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-      right += hmm_solvers_[u]->Check(t, hidden);
-    }
-    assert(fabs(left + right) < 1e-4);
-  }
+//   // Check dual is in sync.
+//   for (int t = 0; t < cluster_problems_.num_types(); ++t) {
+//     double left =0.0, right = 0.0;
+//     int hidden = solution->TypeToHidden(t);
+//     left += hidden_solver_->Check(t, hidden);
+//     for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+//       right += hmm_solvers_[u]->Check(t, hidden);
+//     }
+//     assert(fabs(left + right) < 1e-4);
+//   }
 
-  cerr << "Max Medians " << max_medians  << " " 
-       << ball_holder_->ball_epsilon(0) << " " << dual << endl;
-  assert(fabs(dual - max_medians) < 1e-4);
-  result->primal_value = max_medians;
-  end = clock();
-  cerr << "TIME: Primal Time " << end - start << endl;
+//   cerr << "Max Medians " << max_medians  << " " 
+//        << ball_holder_->ball_epsilon(0) << " " << dual << endl;
+//   assert(fabs(dual - max_medians) < 1e-4);
+//   result->primal_value = max_medians;
+//   end = clock();
+//   cerr << "TIME: Primal Time " << end - start << endl;
 
-  delete problem1;
-  // Debug information.
-  //ClusterSubgrad::Align(*problem1, *problem2);
-}
+//   delete problem1;
+//   // Debug information.
+//   //ClusterSubgrad::Align(*problem1, *problem2);
+// }
 
 vector<vector<vector<double> > > *SpeechSubgradient::MPLPDiff(const vector<vector<int> > &a, 
                                                              const vector<vector<int> > &b) const {
@@ -227,8 +252,10 @@ void SpeechSubgradient::MPLPAugment(vector<vector<vector<double> > > *weights,
                                     double rate) {
   
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
-      for (int h = 0; h < cluster_problems_.num_hidden(); ++h) {
+    const ClusterProblem &problem = cluster_problems_.problem(u);
+    for (int i = 0; i < problem.num_states; ++i) {
+      int type = problem.MapState(i);
+      for (int h = 0; h < cluster_problems_.num_hidden(type); ++h) {
         (*weights)[u][i][h] += rate * augment[u][i][h]; 
       }
     }
@@ -255,6 +282,8 @@ double SpeechSubgradient::MPLPSubgradient(double rate) {
 
   MPLPAugment(hmm_reparameterization2_, *hmm_diff, rate);
   MPLPAugment(hidden_reparameterization2_, *cluster_diff, rate);
+  delete hmm_diff;
+  delete cluster_diff;
   return dual;
 }
 
@@ -266,7 +295,8 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num) {
   // Resize the max marginal set. 
   max_marginals.resize(problem.num_states); 
   for (int i = 0; i < problem.num_states; ++i) {
-    max_marginals[i].resize(cluster_problems_.num_hidden());
+    int type = problem.MapState(i);
+    max_marginals[i].resize(cluster_problems_.num_hidden(type));
   }
   //cerr << cluster_problems_.num_hidden() << " " << problem.num_states << " " << problem.num_steps << endl;
 
@@ -275,7 +305,15 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num) {
 
   // Reparameterize the distribution based on max-marginals.
   for (int i = 0; i < problem.num_states; ++i) {
-    for (int hidden = 0; hidden < cluster_problems_.num_hidden(); ++hidden) {
+    int type = problem.MapState(i);
+    for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
+      // if (max_marginals[i][hidden] == INF) {
+      //   EliminateVariable(type, hidden);
+      // }
+      // if (is_eliminated(type, hidden)) {
+      //   continue;
+      // }
+
       // Remove the last deltas; 
       //(*hidden_reparameterization_)[u][i][hidden] -= (*delta_hmm_)[u][i][hidden];
       (*delta_hmm_)[u][i][hidden] = (-(*delta_hidden_)[u][i][hidden]) + 
@@ -287,7 +325,12 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num) {
     }
   }
   for (int i = 0; i < problem.num_states; ++i) {
-    for (int hidden = 0; hidden < cluster_problems_.num_hidden(); ++hidden) {
+    int type = problem.MapState(i);
+    for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
+      // if (is_eliminated(type, hidden)) {
+      //   continue;
+      // }
+
       (*hidden_reparameterization_)[u][i][hidden] = (*delta_hmm_)[u][i][hidden];
       (*hmm_reparameterization2_)[u][i][hidden] = -(*delta_hmm_)[u][i][hidden];
     }
@@ -296,7 +339,7 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num) {
   SpeechAlignment alignment;
   double temp = hmm_solvers_[u]->Solve(&alignment);
   cerr << "temp test: " << temp << endl; 
-  assert(fabs(temp) < 1e-4);
+  //  assert(fabs(temp) < 1e-4);
   SetReparameterization();
   return score;
 }
@@ -315,9 +358,15 @@ double SpeechSubgradient::MPLPClusterRound() {
 
   // Reparameterize the distribution based on max-marginals.
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+    const ClusterProblem &problem = cluster_problems_.problem(u);  
     int num_states = cluster_problems_.problem(u).num_states;
     for (int i = 0; i < num_states; ++i) {
-      for (int hidden = 0; hidden < cluster_problems_.num_hidden(); ++hidden) {
+      int type = problem.MapState(i);
+      for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
+        // if (is_eliminated(type, hidden)) {
+        //   continue;
+        // }
+
         // Remove the last deltas; 
         //(*hmm_reparameterization_)[u][i][hidden] -= (*delta_hidden_)[u][i][hidden];
         (*delta_hidden_)[u][i][hidden] = (-(*delta_hmm_)[u][i][hidden]) + 
@@ -330,8 +379,13 @@ double SpeechSubgradient::MPLPClusterRound() {
     }
   }
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+    const ClusterProblem &problem = cluster_problems_.problem(u);  
     for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
-      for (int hidden = 0; hidden < cluster_problems_.num_hidden(); ++hidden) {
+      int type = problem.MapState(i);
+      // if (is_eliminated(type, hidden)) {
+      //   continue;
+      // }
+      for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
         (*hmm_reparameterization_)[u][i][hidden] = (*delta_hidden_)[u][i][hidden];
         (*hidden_reparameterization2_)[u][i][hidden] = -(*delta_hidden_)[u][i][hidden];
       }
@@ -361,21 +415,24 @@ void SpeechSubgradient::MPLPRound(int round) {
   }
   SetReparameterization2();
 
-  double dual_value = 0.0;
-  dual_value += hidden_solver_->Solve();  
-  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    SpeechAlignment alignment;
-    dual_value += hmm_solvers_[u]->Solve(&alignment);
-  }
 
+  double dual_value = 0.0;
+  SpeechSolution *solution = new SpeechSolution(cluster_problems_);
+  dual_value += hidden_solver_->Solve();  
+  dual_value = DualProposal(solution);
   SpeechSolution unary_solution(cluster_problems_);
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+    const ClusterProblem &problem = cluster_problems_.problem(u);  
     SpeechAlignment *align = unary_solution.mutable_alignment(u);
     vector<int> *state_hidden = align->mutable_hidden_alignment();
-    state_hidden->resize(cluster_problems_.problem(u).num_states);
-    for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
+    state_hidden->resize(problem.num_states);
+    for (int i = 0; i < problem.num_states; ++i) {
       double best_hidden = INF;
-      for (int hidden = 0; hidden < cluster_problems_.num_hidden(); ++hidden) {
+      int type = problem.MapState(i);
+      for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
+        // if (is_eliminated(type, hidden)) {
+        //   continue;
+        // }     
         double trial = 
           (*delta_hmm_)[u][i][hidden] + (*delta_hidden_)[u][i][hidden];
         if (trial < best_hidden) {
@@ -389,7 +446,7 @@ void SpeechSubgradient::MPLPRound(int round) {
  
     // Actually centroids here.
   vector<DataPoint> centroids;
-  double primal_value = Primal(&centroids);
+  double primal_value = Primal(solution, round, &centroids);
 
   if (primal_value < best_primal_value_) {
     best_primal_value_ = primal_value;
@@ -399,21 +456,9 @@ void SpeechSubgradient::MPLPRound(int round) {
   vector <DataPoint> centroids2;
   problems_.MaximizeMediansHidden(unary_solution, &centroids2);
 
-
   cerr << "Final primal value " << best_primal_value_ << " " <<primal_value << endl;
   cerr << "Final dual value: " << dual_value << endl;
 
-  if (round % 10 == 0.0) {
-    SpeechKMeans kmeans(problems_);
-    kmeans.SetCenters(centroids);
-    kmeans.set_use_medians(true);
-    double kmeans_value = kmeans.Run(10);
-    if (kmeans_value < best_primal_value_) {
-      best_primal_value_ = kmeans_value;
-    }  
-  }
-
-
-
   SetReparameterization();
+  delete solution;
 }

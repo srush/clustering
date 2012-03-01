@@ -4,6 +4,7 @@
 //#include "cluster_subgrad.h"
 #include "hidden_solver.h"
 #include "hmm_solver.h"
+#include "hmm_viterbi_solver.h"
 #include "subgrad.h"
 #include "speech_problem.h"
 
@@ -53,13 +54,13 @@ class SpeechSubgradient {//: public SubgradProblem {
   const ClusterSet &cluster_problems_;
 
   // The decomposition of the hmm part of the problem.
-  vector<HMMSolver *> hmm_solvers_;
+  vector<HMMViterbiSolver *> hmm_solvers_;
 
   // The decomposition of the hmm part of the problem.
   HiddenSolver *hidden_solver_;
 
   // Precomputed terms for solvers.
-  vector<DistanceHolder *> distance_holders_;
+  vector<ThinDistanceHolder *> distance_holders_;
 
   // The best mean value seen so far.
   double best_means_;

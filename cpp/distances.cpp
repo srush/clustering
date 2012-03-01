@@ -1,11 +1,23 @@
 #include "distances.h"
 
+void ThinDistanceHolder::Initialize() {
+  int n = time_steps_.size();
+
+  distance_.resize(n);
+  for (int s = 0; s < n; ++s) {
+    distance_[s].resize(center_set_.size());
+    for (uint c = 0; c < center_set_.size(); ++c) {
+      distance_[s][c] =
+        dist(*time_steps_[s], center_set_[c].point());
+    }
+  }
+}
+
+
 void DistanceHolder::Initialize() {
   int n = time_steps_.size();
 
   // Build chart.
-  sum_points_ = new SpanChart<DataPoint >(time_steps_.size(), 
-                                                width_limit_);
   pruned_ = new SpanChart<bool>(time_steps_.size(), 
                                 width_limit_);
   
@@ -19,7 +31,18 @@ void DistanceHolder::Initialize() {
       distance_->get(s, o).resize(center_set_.size());
     }
   }
+}
 
+double DistanceHolder::Distance(int time_index, int cluster_index) {
+  if (distance_cache_[time_index][cluster_index] == -1) {
+    distance_cache_[time_index][cluster_index] = 
+      dist(*time_steps_[time_index], center_set_[cluster_index].point());
+  }
+  return distance_cache_[time_index][cluster_index];
+}
+
+void DistanceHolder::ComputeDistances() {
+  int n = time_steps_.size();
   // Initialize the distance cache to NULL.
   distance_cache_.resize(n);
   for (int s = 0; s < n; ++s) {
@@ -28,18 +51,15 @@ void DistanceHolder::Initialize() {
       distance_cache_[s][q] = -1;
     }
   }
-}
 
-double DistanceHolder::Distance(int time_index, int cluster_index) {
-  if (distance_cache_[time_index][cluster_index] == -1) {
-    distance_cache_[time_index][cluster_index] = 
-      dist(time_steps_[time_index], center_set_[cluster_index].point());
+  // Prime the cache.
+  for (int s = 0; s < n; ++s) {
+    for (uint q = 0; q < center_set_.size(); ++q) {
+      Distance(s, q); 
+    }
   }
-  return distance_cache_[time_index][cluster_index];
-}
+  
 
-void DistanceHolder::ComputeDistances() {
-  int n = time_steps_.size();
   cerr << "compute dist" << endl;
   for (uint q = 0; q < center_set_.size(); ++q) {
     for (int s = 0; s < n; ++s) {
@@ -58,14 +78,17 @@ void DistanceHolder::ComputeDistances() {
     }
   }
 
+  SpanChart<DataPoint > sum_points(time_steps_.size(), 
+                                   width_limit_);
+
   for (int s = 0; s < n; ++s) {
     for (int o = 0; o < width_limit_; ++o) {
       if (s + o >= n) continue;  
       if (o == 0) {
-        sum_points_->set(s, o, time_steps_[s]);
+        sum_points.set(s, o, *time_steps_[s]);
       } else { 
-        sum_points_->set(s, o, 
-                         sum_points_->get_const(s, o - 1 ) + time_steps_[s + o]);
+        sum_points.set(s, o, 
+                       sum_points.get_const(s, o - 1 ) + *time_steps_[s + o]);
       }
     }
   }
@@ -79,9 +102,9 @@ void DistanceHolder::ComputeDistances() {
         continue;
       }
       double total = 0.0;
-      const DataPoint &centroid = sum_points_->get_const(s, o) / (float)o;
+      const DataPoint &centroid = sum_points.get_const(s, o) / (float)(o +1);
       for (int o2 = 0; o2 <= o; ++o2) {
-        total += dist(centroid, time_steps_[s + o2]);
+        total += dist(centroid, *time_steps_[s + o2]);
       }
       double average = total / (float) o; 
       bool prune = (average > 5.0);
@@ -89,6 +112,8 @@ void DistanceHolder::ComputeDistances() {
     }
   }
   
+  //distance_cache_.clear();
+  initialized_ = true;
 }
 
 void DistanceHolder::ComputeLocalDistances() {
@@ -96,13 +121,13 @@ void DistanceHolder::ComputeLocalDistances() {
   span_centroid_cost_.resize(n);
   for (int s = 0; s < n; ++s) {
     span_centroid_cost_[s].resize(width_limit_);
-    DataPoint sum = time_steps_[s];
+    DataPoint sum = *time_steps_[s];
     for (int o = 1; o < width_limit_; ++o) {
-      sum += time_steps_[s + o];
+      sum += *time_steps_[s + o];
       DataPoint centroid = sum / (o + 1);
       double cost = 0;
       for (int o2 = 0; o2 < width_limit_; ++o) {
-        cost += dist(centroid, time_steps_[s + o2]);
+        cost += dist(centroid, *time_steps_[s + o2]);
       }
       span_centroid_cost_[s][o] = cost; 
     }

@@ -10,8 +10,8 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems):
   best_means_(INF), ball_holder_(NULL) {
   for (int index = 0; index < problems.utterance_size(); ++index) {
     distance_holders_.push_back(problems.MakeDistances(index));
-    hmm_solvers_.push_back(new HMMSolver(cluster_problems_.problem(index), 
-                                         *distance_holders_[index]));
+    hmm_solvers_.push_back(new HMMViterbiSolver(cluster_problems_.problem(index), 
+                                                *distance_holders_[index]));
   }
   hidden_solver_ = new HiddenSolver(cluster_problems_);
   hidden_reparameterization_ = cluster_problems_.CreateReparameterization();
@@ -93,7 +93,6 @@ double SpeechSubgradient::Primal(SpeechSolution *dual_proposal, int round, vecto
   solution.SerializeToOstream(&output);
   output.close();
 
-  delete dual_proposal;
   return max_medians;
 }
 
@@ -307,13 +306,6 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num) {
   for (int i = 0; i < problem.num_states; ++i) {
     int type = problem.MapState(i);
     for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
-      // if (max_marginals[i][hidden] == INF) {
-      //   EliminateVariable(type, hidden);
-      // }
-      // if (is_eliminated(type, hidden)) {
-      //   continue;
-      // }
-
       // Remove the last deltas; 
       //(*hidden_reparameterization_)[u][i][hidden] -= (*delta_hmm_)[u][i][hidden];
       (*delta_hmm_)[u][i][hidden] = (-(*delta_hidden_)[u][i][hidden]) + 
@@ -327,19 +319,17 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num) {
   for (int i = 0; i < problem.num_states; ++i) {
     int type = problem.MapState(i);
     for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
-      // if (is_eliminated(type, hidden)) {
-      //   continue;
-      // }
-
       (*hidden_reparameterization_)[u][i][hidden] = (*delta_hmm_)[u][i][hidden];
       (*hmm_reparameterization2_)[u][i][hidden] = -(*delta_hmm_)[u][i][hidden];
     }
   }
-  SetReparameterization2();
-  SpeechAlignment alignment;
-  double temp = hmm_solvers_[u]->Solve(&alignment);
-  cerr << "temp test: " << temp << endl; 
-  //  assert(fabs(temp) < 1e-4);
+  if (false) {
+    SetReparameterization2();
+    SpeechAlignment alignment;
+    double temp = hmm_solvers_[u]->Solve(&alignment);
+    cerr << "temp test: " << temp << endl; 
+    assert(fabs(temp) < 1e-4);
+  }
   SetReparameterization();
   return score;
 }
@@ -391,12 +381,12 @@ double SpeechSubgradient::MPLPClusterRound() {
       }
     }
   }
-
-  SetReparameterization2();
-  double temp = hidden_solver_->Solve();
-  cerr << "temp test: " << temp << endl; 
-  assert(fabs(temp) < 1e-4);
-
+  if (false) {
+    SetReparameterization2();
+    double temp = hidden_solver_->Solve();
+    cerr << "temp test: " << temp << endl; 
+    assert(fabs(temp) < 1e-4);
+  }
   SetReparameterization();
   delete max_marginals;
   return score;

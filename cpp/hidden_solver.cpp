@@ -17,21 +17,29 @@ HiddenSolver::HiddenSolver(const ClusterSet &cs)
 double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {  
   clock_t start = clock();
   double score = Solve();
+  clock_t end = clock();
+  cerr << "Solving clustering " << end - start << endl;
+  start = clock();
 
+  double all_best_types = 0.0;
+  for (int t = 0; t < cs_.num_types(); ++t) {
+    all_best_types += best_score_[t];
+  }
   // $\sum_{p\neq t(i)} \max_{q'} \sum_{i':t(i') = p} \lambda(i',q') + \sum_{i':t(i') = t(i)} \lambda(i, q)$
   for (int u = 0; u < cs_.problems_size(); ++u) {
     const ClusterProblem &problem = cs_.problem(u);
     for (int i = 0; i < problem.num_states; ++i) {  
       int marginal_type = problem.MapState(i);
       for (int hidden = 0; hidden < cs_.num_hidden(marginal_type); ++hidden) {
-        // if (is_eliminated(type, hidden)) {
-        //   continue;
+        // for (int t = 0; t < cs_.num_types(); ++t) {
+        //   if (t == marginal_type) continue;
+        //   (*mu)[u][i][hidden] += best_score_[t];
         // }
-        for (int t = 0; t < cs_.num_types(); ++t) {
-          if (t == marginal_type) continue;
-          (*mu)[u][i][hidden] += best_score_[t];
-        }
-        (*mu)[u][i][hidden] += hidden_costs_[marginal_type][hidden]; 
+        // (*mu)[u][i][hidden] += hidden_costs_[marginal_type][hidden]; 
+        (*mu)[u][i][hidden] = 
+          all_best_types -
+          best_score_[marginal_type] +
+          hidden_costs_[marginal_type][hidden];
       }
     }
   }
@@ -40,16 +48,12 @@ double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {
     for (int i = 0; i < problem.num_states; ++i) {  
       int type = problem.MapState(i);
       for (int hidden = 0; hidden < cs_.num_hidden(type); ++hidden) {
-        // if (is_eliminated(type, hidden)) {
-        //   continue;
-        // }
-
         assert((*mu)[u][i][hidden] - score > -1e-4);
       }
     }
   }
-  clock_t end = clock();
-  cerr << "Running clustering " << end - start << endl;
+  end = clock();
+  cerr << "Finishing clustering " << end - start << endl;
   return score;
 }
 

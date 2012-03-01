@@ -1,5 +1,6 @@
 #include "speech_kmeans.h"
 #include "semimarkov.h"
+#include "viterbi.h"
 
 SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set): 
   problems_(problem_set), cluster_problems_(problem_set.MakeClusterSet()),
@@ -30,7 +31,7 @@ double SpeechKMeans::Run(int rounds) {
   }
   return round_score;
 }
-
+/*
 double SpeechKMeans::Expectation(int utterance_index,
                                  int *correctness,
                                  vector<vector<DataPoint> > *sets) {
@@ -89,6 +90,50 @@ double SpeechKMeans::Expectation(int utterance_index,
   //vector<int> path;
   semimarkov.ViterbiForward();
   double score = semimarkov.GetBestPath(&path_[u]);
+  (*correctness) = utterance.ScoreAlignment(path_[u]);
+  cerr << "Correctness: " << *correctness << endl; 
+
+  // Make the cluster sets.
+  problems_.AlignmentClusterSet(utterance_index, path_[u], sets);
+
+  assert(path_[u].size() - 1 == (uint)cluster_problem.num_states);
+  cerr << endl;
+  return score;
+}
+*/
+
+
+double SpeechKMeans::Expectation(int utterance_index,
+                                 int *correctness,
+                                 vector<vector<DataPoint> > *sets) {
+  int u = utterance_index;
+  const ClusterProblem &cluster_problem = 
+    cluster_problems_.problem(utterance_index);
+  const Utterance &utterance = problems_.utterance(utterance_index);
+
+  Viterbi viterbi(cluster_problem.num_states, 
+                  cluster_problem.num_steps, 1, 3);
+  viterbi.Initialize();
+
+
+   // Set the weights based on the current centers.
+  clock_t start = clock();
+
+  for (int i = 0; i < cluster_problem.num_states; ++i) {
+    const DataPoint &center = centers_[cluster_problem.MapState(i)];
+    for (int s = 0; s < cluster_problem.num_steps; ++s) {
+      double score = dist(center,
+                          utterance.sequence(s));
+      viterbi.set_state_score(s, i, score);
+    }
+  }
+  cerr << "score setting " << clock() - start << endl;  
+  
+  // Run semimarkov algorithm.
+  //vector<int> path;
+  viterbi.ForwardScores();
+  vector<int> centers;
+  double score = viterbi.GetBestPath(&path_[u], &centers);
   (*correctness) = utterance.ScoreAlignment(path_[u]);
   cerr << "Correctness: " << *correctness << endl; 
 

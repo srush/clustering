@@ -13,13 +13,14 @@ using namespace std;
 
 SpeechProblemSet::SpeechProblemSet(const vector<Utterance *> &utterances, 
                                    vector<Center> *centers) 
-  : utterances_(utterances), centers_(centers) {
+  : utterances_(utterances), centers_(centers), holder_(utterances_.size()) {
   vector<ClusterProblem *> cluster_problems;
   int num_hidden = 0;
   int num_types = 0;
   int width_limit = 0;
 
   for (uint u = 0; u < utterances_.size(); ++u) {
+    holder_[u] = NULL;
     num_features_ = utterances_[u]->num_features();
     int num_steps = utterances_[u]->sequence_size();
     width_limit = utterances_[u]->max_phone_length();
@@ -73,18 +74,23 @@ void SpeechProblemSet::CacheTypeOccurence() {
   }
 }
 
-DistanceHolder *SpeechProblemSet::MakeDistances(int problem) const {
-  vector<DataPoint> *time_steps = new vector<DataPoint>();
-  for (int i = 0; i < utterances_[problem]->sequence_size(); ++i) {
-    time_steps->push_back(utterances_[problem]->sequence(i));
+ThinDistanceHolder *SpeechProblemSet::MakeDistances(int problem) const {
+  if (holder_[problem] == NULL) {
+    vector<const DataPoint * > *time_steps = new vector<const DataPoint*>();
+    for (int i = 0; i < utterances_[problem]->sequence_size(); ++i) {
+      time_steps->push_back(&utterances_[problem]->sequence(i));
+    }
+    // holder_[problem] = new DistanceHolder(*centers_, 
+    //                                       *time_steps, 
+    //                                       utterances_[problem]->max_phone_length());
+    holder_[problem] = new ThinDistanceHolder(*centers_, 
+                                              *time_steps);
+    holder_[problem]->Initialize();
+    //holder_[problem]->ComputeDistances();
   }
-  DistanceHolder *holder = new DistanceHolder(*centers_, 
-                                              *time_steps, 
-                                              utterances_[problem]->max_phone_length());
-  holder->Initialize();
-  holder->ComputeDistances();
-  return holder;
+  return holder_[problem];
 }
+
 
 BallHolder *SpeechProblemSet::MakeBalls(vector<int> epsilons) const {
   BallHolder *holder = new BallHolder(epsilons, *centers_);

@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     kmeans.InitializeCenters();
     //kmeans.SetCenters(centroids);
     kmeans.set_use_medians(true);
-    kmeans.Run(30);
+    kmeans.Run(100);
   
     stringstream buf;
     buf << "results/" << FLAGS_problem_name << "_pc_solution";
@@ -58,9 +58,9 @@ int main(int argc, char **argv) {
 
 
   else if (FLAGS_algorithm == "lp") {
-    AlignmentLP lp(*speech_problems);
-    lp.ConstructLP();
-  } else if (FLAGS_algorithm == "lr") {
+    // AlignmentLP lp(*speech_problems);
+    // lp.ConstructLP();
+  } else if (FLAGS_algorithm == "lrv") {
     SpeechSubgradient *speech_subgrad = new SpeechSubgradient(*speech_problems);
     SpeechKMeans kmeans(*speech_problems);
     for (uint i = 0; i < 5000; ++i) {

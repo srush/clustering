@@ -25,7 +25,7 @@ class SpeechProblemSet {
                    vector<Center> *centers);
 
   // Precompute the distances of each start-end pair.
-  DistanceHolder *MakeDistances(int problem) const;
+  ThinDistanceHolder *MakeDistances(int problem) const;
   
   // Compute the underlying cluster problem.
   const ClusterSet &MakeClusterSet() const;
@@ -135,6 +135,8 @@ class SpeechProblemSet {
 
   // State locations for each type.
   vector<vector<StateLocation> > state_locations_;
+
+  mutable vector<ThinDistanceHolder *> holder_;
 };
 
 #endif

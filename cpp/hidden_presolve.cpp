@@ -17,6 +17,9 @@ HiddenHolder::HiddenHolder(const ClusterProblem &cp,
   primal_score_ = new SpanChart<vector<double> >(cp_.num_steps, cp.width_limit()); 
   for (int s = 0; s < cp_.num_steps; ++s) {
     for (int o = 0; o < cp_.width_limit(); ++o) {
+      if (is_pruned(s, o)) {
+        continue;
+      }
       best_score_->get(s, o).resize(cp.num_states);
       best_hidden_->get(s, o).resize(cp.num_states);
       primal_score_->get(s, o).resize(cp.num_states);
@@ -26,6 +29,9 @@ HiddenHolder::HiddenHolder(const ClusterProblem &cp,
   // Initialize all scores to INF.
   for (int s = 0; s < cp_.num_steps; ++s) {
     for (int o = 0; o < cp_.width_limit(); ++o) {
+      if (is_pruned(s, o)) {
+        continue;
+      }
       for (int i = 0; i < cp_.num_states; ++i) {
         best_score_->get(s, o)[i] = INF;
       }
@@ -50,6 +56,9 @@ void HiddenHolder::ComputeBestHidden() {
   clock_t start = clock();
   for (int s = 0; s < cp_.num_steps; ++s) {
     for (int o = 0; o < cp_.width_limit(); ++o) {
+      if (is_pruned(s, o)) {
+        continue;
+      }
       for (int i = 0; i < cp_.num_states; ++i) {
         best_score_->get(s, o)[i] = INF;
         best_hidden_->get(s, o)[i] = 0;

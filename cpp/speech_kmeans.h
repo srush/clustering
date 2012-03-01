@@ -54,7 +54,7 @@ class SpeechKMeans {
   // Force medians instead of means.
   bool use_medians_;
 
-  vector<DistanceHolder *> distances_;
+  vector<ThinDistanceHolder *> distances_;
 
   // The last path from the expectation state.
   vector<vector<int> > path_;

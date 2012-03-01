@@ -19,15 +19,41 @@ private:
 
 };
 
+class ThinDistanceHolder {
+ public:
+  ThinDistanceHolder(const vector<Center> &center_set,
+                     const vector<const DataPoint *> &time_steps) :
+  center_set_(center_set), 
+    time_steps_(time_steps)
+    {
+      cerr << "Thin Distance Holder with "
+           << center_set_.size() << " " << time_steps_.size() << endl;
+    } 
+
+  void Initialize();
+
+  double get_distance(int time, int center) const {
+    //cassert(initialized_);
+    return distance_[time][center];
+  }
+ private:
+  // Distance between each time step to a center.
+  vector<vector<double > > distance_;
+
+  const vector<Center> &center_set_;
+  const vector<const DataPoint *> &time_steps_;
+};
+
 // Precompute the distance from each span to each cluster center. 
 class DistanceHolder {
  public:
   DistanceHolder(const vector<Center> &center_set,
-                 const vector<DataPoint> &time_steps, 
+                 const vector<const DataPoint *> &time_steps, 
                  int width_limit) :
   width_limit_(width_limit),
   center_set_(center_set), 
-  time_steps_(time_steps) {
+    time_steps_(time_steps), 
+    initialized_(false){
     cerr << "Distance Holder with " << width_limit << " " 
          << center_set_.size() << " " << time_steps_.size() << endl;
   } 
@@ -45,6 +71,11 @@ class DistanceHolder {
 
   double get_distance(int start, int offset, int center) const {
     return distance_->get(start, offset)[center];
+  }
+
+  double get_distance(int time, int center) const {
+    assert(initialized_);
+    return distance_cache_[time][center];
   }
 
   bool is_distance_used(int start, int offset, int center) const {
@@ -81,11 +112,10 @@ class DistanceHolder {
   int width_limit_;
 
   const vector<Center> &center_set_;
-  const vector<DataPoint> &time_steps_;
+  const vector<const DataPoint *> &time_steps_;
   
   // The distance from each span to each possible center.
   SpanChart<vector <double> > *distance_;
-  SpanChart<DataPoint> *sum_points_;
 
   // Pruning set for spans.
   SpanChart<bool> *pruned_;
@@ -96,6 +126,8 @@ class DistanceHolder {
   
   // Sum of distances from a span to its centroid. 
   vector<vector<double> > span_centroid_cost_;  
+
+  bool initialized_;
 };
 
 class BallHolder {

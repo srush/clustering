@@ -48,7 +48,8 @@ SpeechProblemSet::SpeechProblemSet(const vector<Utterance *> &utterances,
                                 num_hidden, 
                                 num_types, 
                                 0, //TODO, 
-                                width_limit);
+                                width_limit, 
+                                3);
   for (uint u = 0; u < utterances_.size(); ++u) {
     cluster_problems[u]->cluster_set_ = cluster_set_;
   }
@@ -105,15 +106,16 @@ const ClusterSet &SpeechProblemSet::MakeClusterSet() const {
 
 void SpeechProblemSet::AlignmentClusterSet(int problem,
                                            const vector<int> &alignment,  
-                                           vector<vector<DataPoint> > *cluster_sets) const {
-  cluster_sets->resize(cluster_set_->num_types());
+                                           const vector<int> &centers,  
+                                           vector<vector<vector<DataPoint> > > *cluster_sets) const {
   const ClusterProblem &cluster_problem = cluster_set_->problem(problem);
   for (uint i = 0; i < alignment.size() - 1; ++i) {
     int start = alignment[i];
     int end = alignment[i + 1];
     int type = cluster_problem.MapState(i);
+    int mode = centers[i];
     for (int j = start; j < end; ++j) {
-      (*cluster_sets)[type].push_back(utterance(problem).sequence(j));
+      (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j));
     }
   }
   assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
@@ -312,7 +314,7 @@ SpeechSolution *SpeechProblemSet::ApproxMaximizeMedians(
     }
     assert(best_center != -1);
 
-    proposed_primal->set_type_to_hidden(p, best_center);
+    proposed_primal->set_type_to_hidden(p, 0, best_center);
     
     
       int partition = ball_holder.partition_for_center(0, best_center);

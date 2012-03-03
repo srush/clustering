@@ -3,14 +3,20 @@
 #define INF 1e20
 
 HiddenSolver::HiddenSolver(const ClusterSet &cs) 
-  : cs_(cs) {
+  : cs_(cs), num_modes_(cs.num_modes()) {
   type_dirty_.resize(cs_.num_types());
   hidden_costs_.resize(cs_.num_types());
   for (int t = 0; t < cs_.num_types(); ++t) {
     hidden_costs_[t].resize(cs_.num_hidden(t));
   }
-  best_score_.resize(cs_.num_types());
-  best_hidden_.resize(cs_.num_types());
+
+  best_score_.resize(num_modes_);
+  best_hidden_.resize(num_modes_);
+  for (int mode = 0; mode < num_modes_; ++mode) {
+    best_score_[mode].resize(cs_.num_types());
+    best_hidden_[mode].resize(cs_.num_types());
+    
+  }
 }
 
 // Compute max-marginals.
@@ -23,7 +29,9 @@ double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {
 
   double all_best_types = 0.0;
   for (int t = 0; t < cs_.num_types(); ++t) {
-    all_best_types += best_score_[t];
+    for (int mode = 0; mode < num_modes_; ++mode) {
+      all_best_types += best_score_[mode][t];
+    }
   }
   // $\sum_{p\neq t(i)} \max_{q'} \sum_{i':t(i') = p} \lambda(i',q') + \sum_{i':t(i') = t(i)} \lambda(i, q)$
   for (int u = 0; u < cs_.problems_size(); ++u) {
@@ -36,10 +44,21 @@ double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {
         //   (*mu)[u][i][hidden] += best_score_[t];
         // }
         // (*mu)[u][i][hidden] += hidden_costs_[marginal_type][hidden]; 
-        (*mu)[u][i][hidden] = 
-          all_best_types -
-          best_score_[marginal_type] +
-          hidden_costs_[marginal_type][hidden];
+        (*mu)[u][i][hidden] = all_best_types;
+        bool found = false;
+        for (int mode = 0; mode < num_modes_; ++mode) {
+          if (best_hidden_[mode][marginal_type] == hidden) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          double change =             
+            - hidden_costs_[marginal_type][best_hidden_[num_modes_ - 1][marginal_type]]
+            + hidden_costs_[marginal_type][hidden];
+          assert(change >= -1e-4);
+          (*mu)[u][i][hidden] += change; 
+        }  
       }
     }
   }
@@ -59,19 +78,26 @@ double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {
 
 double HiddenSolver::Solve() {
   double total_score = 0.0;
-  for (int t = 0; t < cs_.num_types(); ++t) {
-    best_score_[t] = INF;
-    for (int q = 0; q < cs_.num_hidden(t); ++q) {
-      // if (is_eliminated(type, hidden)) {
-      //   continue;
-      // }
-      double score = hidden_costs_[t][q];
-      if (score < best_score_[t]) {
-        best_score_[t] = score;
-        best_hidden_[t] = q;
+  for (int mode = 0; mode < num_modes_; ++mode) {
+    for (int t = 0; t < cs_.num_types(); ++t) {
+      best_score_[mode][t] = INF;
+      for (int q = 0; q < cs_.num_hidden(t); ++q) {
+        bool seen = false;
+        for (int mode2 = 0; mode2 < mode; ++mode2) {
+          if (best_hidden_[mode2][t] == q) {
+            seen = true;
+            break;
+          }
+        }
+        if (seen) continue;
+        double score = hidden_costs_[t][q];
+        if (score < best_score_[mode][t]) {
+          best_score_[mode][t] = score;
+          best_hidden_[mode][t] = q;
+        }
       }
+      total_score += best_score_[mode][t];
     }
-    total_score += best_score_[t];
   }
   cerr << "Hidden score: " << total_score << endl;
   return total_score;
@@ -81,9 +107,11 @@ double HiddenSolver::Solve() {
 double HiddenSolver::Rescore(const SpeechSolution &solution) const {
   double dual_score = 0.0;
   for (int t = 0; t < cs_.num_types(); ++t) {
-    int hidden = solution.TypeToHidden(t);
-    //cerr << t << " " << hidden << " " << hidden_costs_[t][hidden] << endl;
-    dual_score += hidden_costs_[t][hidden];
+    for (int mode = 0; mode < num_modes_; ++mode) {
+      int hidden = solution.TypeToHidden(t, mode);
+      //cerr << t << " " << hidden << " " << hidden_costs_[t][hidden] << endl;
+      dual_score += hidden_costs_[t][hidden];
+    }
   }
   return dual_score;
 }

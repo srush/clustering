@@ -53,9 +53,9 @@ class HiddenSolver {
 
   double Check(int type, int hidden);
                       
-                      int TypeToHidden(int type) {
-                        return best_hidden_[type];
-                          }
+  int TypeToHidden(int type, int mode) {
+    return best_hidden_[mode][type];
+  }
                       
  private:
   
@@ -66,13 +66,16 @@ class HiddenSolver {
   vector<vector <double> > hidden_costs_;
 
   // The current best hidden for a type score. 
-  vector<double> best_score_; 
+  vector<vector<double> >  best_score_; 
+  
 
   // The current best hidden for a type assignment. 
-  vector<int> best_hidden_;
+  vector<vector<int> > best_hidden_;
 
   const ClusterSet &cs_;
   const vector<vector<vector<double > > > *reparameterization_;
+
+  int num_modes_;
 };
 
 #endif

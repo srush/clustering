@@ -59,7 +59,8 @@ public:
              int num_hidden,
              int num_types,
              int num_balls,
-             int width_limit);
+             int width_limit,
+             int num_modes);
   
   // Creates an reparameterization array for the cluster problem.
   vector<vector<vector<double > > > *CreateReparameterization() const;
@@ -97,6 +98,7 @@ public:
     }
   }
 
+  int num_modes() const { return num_modes_; }
 private:
   vector<ClusterProblem *> cluster_problems_; 
 
@@ -110,7 +112,8 @@ private:
 
   // Number of epsilon ball constraints to use.
   //int num_balls_;
-  
+
+  int num_modes_;  
 };
 
 #endif

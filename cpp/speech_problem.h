@@ -68,7 +68,8 @@ class SpeechProblemSet {
   // Convert an alignment to a set of points in each phoneme cluster.
   void AlignmentClusterSet(int problem,
                            const vector<int> &alignment, 
-                           vector<vector<DataPoint> > *cluster_sets) const;
+                           const vector<int> &centers, 
+                           vector<vector<vector<DataPoint> > > *cluster_sets) const;
 
   // Convert an alignment to a set of groups of points in each phoneme cluster.
   void AlignmentGroupClusterSet(int problem,

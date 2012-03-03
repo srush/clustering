@@ -21,11 +21,12 @@ void Viterbi::Initialize() {
     back_pointer_[m].resize(num_states_ + 1);
     scores_[m].resize(num_centers_);
     best_back_[m].resize(num_states_ + 1, INF);
-    state_score_[m].resize(num_states_, 0.0);
+    state_score_[m].resize(num_states_ + 1);
     for (int i = 0; i < num_states_ + 1; ++i) {
       forward_scores_[m][i].resize(num_centers_);
       backward_scores_[m][i].resize(num_centers_ );
       back_pointer_[m][i].resize(num_centers_);
+      state_score_[m][i].resize(num_centers_, 0.0);
     }
   }
 
@@ -88,7 +89,7 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
       if (i > m) continue;
       for (int c = 0; c < num_centers_; ++c) {
         double trial1 = forward_scores_[m][i][c] + backward_scores_[m + 1][i][c];
-        double trial2 = forward_scores_[m][i][c] + best_back_[m + min_width_][i + 1];
+        double trial2 = forward_scores_[m][i][c] + best_back_[m + 1][i + 1];
         if (trial1 < (*min_marginals)[i][c]) {
           (*min_marginals)[i][c] = trial1;
         }
@@ -116,27 +117,36 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
 
 void Viterbi::ForwardScores() {
   for (int c = 0; c < num_centers_; ++c) {
-    forward_scores_[0][0][c] = lambda_[0][c] + scores_[0][c] + state_score_[0][0];
+    forward_scores_[0][0][c] = 
+      lambda_[0][c] + scores_[0][c] + state_score_[0][0][c];
   }
   for (int m = 1; m <= num_timesteps_; ++m) {
     for (int i = 0; i <= num_states_; ++i) {
-      if (i > m) continue; 
+      //if (i * min_width_ > m) continue; 
       double b = INF;
       int back_center = -1;
+
+      // Find the best possble transition center.
       if (i != 0 && m >= min_width_) {
         for (int c2 = 0; c2 < num_centers_; c2++) {
-          forward_scores_[m][i][c2] = INF;
-          back_pointer_[m][i][c2] = -2;
-          double trial = forward_scores_[m - min_width_][i - 1][c2];
+          // Reset the forward scores
+          double trial;
+          if (m == num_timesteps_ && i == num_states_)  {
+            trial = forward_scores_[m - 1][i - 1][c2];
+          } else  {
+            trial = forward_scores_[m - min_width_][i - 1][c2];
+          } 
           if (trial < b) { 
             b = trial; 
             back_center = c2;
           }
-          assert(back_center != -1);
+          //assert(back_center != -1);
         }
       }
       for (int c = 0; c < num_centers_; ++c) {
         double w;
+
+        // Last time step must transition to final state.
         if (m == num_timesteps_) {
           if (c == 0 && i == num_states_ ) {
             w = 0.0;
@@ -144,10 +154,11 @@ void Viterbi::ForwardScores() {
             w = INF;
           }
         } else {
+          // Last state only valid on last time step.
           if (i == num_states_) {
             w = INF;
           } else {
-            w = scores_[m][c] + state_score_[m][i];
+            w = scores_[m][c] + state_score_[m][i][c];
           }
         }
         double stay_score = w + forward_scores_[m - 1][i][c];
@@ -155,12 +166,11 @@ void Viterbi::ForwardScores() {
         if (i < num_states_) {
           pen = lambda_[i][c];
         }
-        if (m - min_width_ >= 0) {
-          for (int pre = 0; pre < min_width_; ++pre) {
-            pen += scores_[m - pre][c] + state_score_[m - pre][i];
+        // Add the transition scores.
+        if (m - min_width_ >= 0 && i != num_states_) {
+          for (int pre = 1; pre < min_width_; ++pre) {
+            pen += scores_[m - pre][c] + state_score_[m - pre][i][c];
           }
-        } else {
-          pen = INF;
         }
         double switch_score =  w + b + pen;
 
@@ -184,8 +194,9 @@ void Viterbi::BackwardScores() {
     for (int i = num_states_ - 1; i >= 0 ; --i) {
       double b = INF;
       if (i == num_states_ - 1 && m == num_timesteps_ - 1) {
+        // Free to transition out of last state.
         b = 0.0;
-      } else {
+      } else if (m + min_width_ < num_timesteps_)  {
         for (int c2 = 0; c2 < num_centers_; c2++) {
           double pen = 0.0;
           if (i + 1 != num_states_) {
@@ -196,13 +207,23 @@ void Viterbi::BackwardScores() {
         }
       } 
       for (int c = 0; c < num_centers_; ++c) {
-        double w = scores_[m][c];
-        double stay_score = backward_scores_[m + 1][i][c];
-        double switch_score = b;
-        if (stay_score < switch_score) {
-          backward_scores_[m][i][c] = w + stay_score;
+        double w = scores_[m][c] + state_score_[m][i][c];
+        double stay_score = backward_scores_[m + 1][i][c] + w;
+        double cost = 0.0;
+        if (m + min_width_ < num_timesteps_) {
+          for (int pre = 0; pre < min_width_; ++pre) {
+            cost += scores_[m + pre][c] + state_score_[m + pre][i][c];
+          }
+        } else if (i == num_states_ - 1 && m == num_timesteps_ - 1) { 
+          cost = w;
         } else {
-          backward_scores_[m][i][c] = w + switch_score;
+          cost = INF;
+        }
+        double switch_score = b + cost;
+        if (stay_score < switch_score) {
+          backward_scores_[m][i][c] = stay_score;
+        } else {
+          backward_scores_[m][i][c] = switch_score;
         }
       }
     }
@@ -231,33 +252,45 @@ double Viterbi::GetBestPath(vector<int> *path, vector<int> *centers) {
 
   while (cur_time > 0) {
     while (back_pointer_[cur_time][cur_state][cur_center] == -1) {
-      check_score += score(cur_time, cur_center) + state_score(cur_time, cur_state);
+      assert(fabs(check_score + forward_scores_[cur_time][cur_state][cur_center] - total_score) < 1e-4);
+      check_score += score(cur_time, cur_center) + state_score(cur_time, cur_state, cur_center);
+      //cerr << cur_time  << " " << cur_state << endl;  
       cur_time--;
-      //cerr << cur_time << " " << cur_state << " " << check_score << endl;
       if (cur_time <= 0) {
         break;
       }
     }
     if (cur_time <= 0) {
+      //cerr << "END" << endl;
       break;
     }
     assert(back_pointer_[cur_time][cur_state][cur_center] != -2);
 
     //cerr << cur_time << " " << cur_state << " " << cur_center << " " << check_score << " " << score(cur_time, cur_state) << " " <<  lambda(cur_state, cur_center) << endl;
+    int next_center = back_pointer_[cur_time][cur_state][cur_center];
     if (!(cur_time == num_timesteps_ && cur_state == num_states_)) {
-      check_score += state_score(cur_time, cur_state) + score(cur_time, cur_center) + lambda(cur_state, cur_center);
+      for (int t = 0; t < min_width_; ++t) {
+        check_score += state_score(cur_time - t, cur_state, cur_center) + score(cur_time - t, cur_center);
+        //cerr << cur_time - t << " " << cur_state << endl;
+      }
+      check_score += lambda(cur_state, cur_center);
     }
-    cur_center = back_pointer_[cur_time][cur_state][cur_center];
+    cur_center = next_center;
     assert(cur_center >= -1);
-    path->push_back(cur_time);
     centers->push_back(cur_center);
-    cur_time--;
+    if (cur_time == num_timesteps_ && cur_state == num_states_) {
+      path->push_back(cur_time);
+      cur_time --;
+    } else {
+      path->push_back(cur_time - min_width_ + 1);
+      cur_time -= min_width_;
+    }
     cur_state--;
     //cerr << cur_time << " " << cur_state << " " << cur_center << " " << check_score << endl;
   }
   assert(cur_state == 0);
   path->push_back(0);
-  check_score += lambda(0, cur_center) + score(0, cur_center) + state_score(0, 0);
+  check_score += lambda(0, cur_center) + score(0, cur_center) + state_score(0, 0, cur_center);
   assert(fabs(check_score - total_score) < 1e-4);
   reverse(path->begin(), path->end());
   reverse(centers->begin(), centers->end());

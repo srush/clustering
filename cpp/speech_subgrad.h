@@ -19,7 +19,7 @@ class SpeechSubgradient {//: public SubgradProblem {
   // Update the weights with vector.
   //void Update(const DataPoint &data_point, double alpha);
 
-  const vector<DataPoint> &centers() {
+  const vector<vector<DataPoint> > &centers() {
     return best_centers_;
   }
 
@@ -64,7 +64,7 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // The best mean value seen so far.
   double best_means_;
-  vector<DataPoint> best_centers_;
+  vector<vector<DataPoint> > best_centers_;
 
   // The number of types.
   int num_features_;

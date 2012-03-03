@@ -28,13 +28,13 @@ void SpeechSolution::ToProtobuf(speech::SpeechSolution &solution,
     speech::Vector *vector = solution.add_phoneme_centers();
 
     if (!use_special_) {
-      const Center &center = speech_problem.center(TypeToHidden(p));
+      const Center &center = speech_problem.center(TypeToHidden(p, 0));
       const DataPoint &center_point = center.point();
       for (int feature = 0; feature < speech_problem.num_features(); ++feature) {
         vector->add_dim(center_point[feature]);
       }
     } else {
-      DataPoint center_point = type_to_special_[p];
+      DataPoint center_point = type_to_special_[0][p];
       for (int feature = 0; feature < speech_problem.num_features(); ++feature) {
         vector->add_dim(center_point[feature]);
       }

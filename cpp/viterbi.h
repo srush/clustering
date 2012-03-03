@@ -43,14 +43,15 @@ class Viterbi {
   }
 
 
-  double state_score(int time, int state) const {
+  double state_score(int time, int state, int center) const {
     assert(time < num_timesteps_);
     assert(state < num_states_);
-    return state_score_[time][state];
+    assert(center < num_centers_);
+    return state_score_[time][state][center];
   }
 
-  void set_state_score(int time, int state, double score) {
-    state_score_[time][state] = score;
+  void set_state_score(int time, int state, int center, double score) {
+    state_score_[time][state][center] = score;
   }
 
 
@@ -78,7 +79,7 @@ class Viterbi {
   vector< vector<double> > best_back_;
   vector< vector<double> > scores_;
   vector< vector<double> > lambda_;
-  vector< vector<double> > state_score_;
+  vector<vector< vector<double> > > state_score_;
 
 };
 

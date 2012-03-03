@@ -18,13 +18,13 @@ class SpeechKMeans {
   void InitializeCenters();
 
   // Set the centers to start EM.
-  void SetCenters(const vector<DataPoint> &centers);
+  void SetCenters(const vector<vector<DataPoint> > &centers);
   
   void set_use_medians(bool use_medians) {
     use_medians_ = use_medians;
   }
 
-  const vector<DataPoint> &centers() { return centers_; } 
+  const vector<vector<DataPoint> > &centers() { return centers_; } 
 
   SpeechSolution *MakeSolution();
 
@@ -33,9 +33,9 @@ class SpeechKMeans {
   // EM.
   double Expectation(int utterance_index,
                      int *correctness,
-                     vector<vector<DataPoint> > *sets
+                     vector<vector<vector<DataPoint> > > *sets
                      );
-  void Maximization(const vector<vector<DataPoint> > &sets);
+  void Maximization(const vector<vector<vector<DataPoint> > > &sets);
 
   
   // The information of the underlying speech problem
@@ -45,7 +45,7 @@ class SpeechKMeans {
   const ClusterSet &cluster_problems_;
 
   // The centers of the clusters.
-  vector<DataPoint > centers_;
+  vector<vector<DataPoint> > centers_;
 
   // The number of types.
   int num_types_;

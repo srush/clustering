@@ -61,11 +61,18 @@ class SpeechSolution {
  public:
  SpeechSolution(const ClusterSet &cluster_set) : 
   speech_alignments_(cluster_set.problems_size()),
-    type_to_hidden_(cluster_set.num_types()),
     use_special_(false),
-    type_to_special_(cluster_set.num_types()),
     cluster_set_(cluster_set)
-    {}
+    {
+      type_to_special_.resize(cluster_set.num_modes());
+      type_to_hidden_.resize(cluster_set.num_modes());
+
+      for (int mode = 0; mode < cluster_set.num_modes(); ++mode) {
+        type_to_special_[mode].resize(cluster_set.num_types());
+        type_to_hidden_[mode].resize(cluster_set.num_types());
+      }
+
+    }
   SpeechSolution(const SpeechSolution &solution);
 
   const SpeechAlignment &alignment(int problem) const {
@@ -93,7 +100,7 @@ class SpeechSolution {
       results[u].resize(align.alignment_size());
       for (int i = 0; i < align.alignment_size(); ++i) {
         int type = cluster_set_.problem(u).MapState(i); 
-        results[u][i] = TypeToHidden(type);
+        results[u][i] = TypeToHidden(type, 0);
       }
     }    
     return results;
@@ -119,23 +126,23 @@ class SpeechSolution {
   void ToProtobuf(speech::SpeechSolution &solution, 
                   const SpeechProblemSet &speech_problem) const;
 
-  int TypeToHidden(int type) const {
-    return type_to_hidden_[type];
+  int TypeToHidden(int type, int mode) const {
+    return type_to_hidden_[mode][type];
   }
 
   SpeechAlignment *mutable_alignment(int problem) {
     return &speech_alignments_[problem];
   }
 
-  vector<int> *mutable_types() { return &type_to_hidden_; } 
+  vector<int> *mutable_types() { return &type_to_hidden_[0]; } 
   
-  void set_type_to_hidden(int type, int hidden) { 
-    type_to_hidden_[type] = hidden; 
+  void set_type_to_hidden(int type, int mode, int hidden) { 
+    type_to_hidden_[mode][type] = hidden; 
     use_special_ = false;
   } 
 
-  void set_type_to_special(int type, DataPoint point) {
-    type_to_special_[type] = point;
+  void set_type_to_special(int type, int mode, DataPoint point) {
+    type_to_special_[mode][type] = point;
     use_special_ = true;
   }
 
@@ -144,10 +151,10 @@ class SpeechSolution {
   vector<SpeechAlignment> speech_alignments_;
 
   // Mapping from types to hidden choices.
-  vector<int> type_to_hidden_;
+  vector<vector<int> > type_to_hidden_;
   
   bool use_special_;
-  vector<DataPoint> type_to_special_;
+  vector<vector<DataPoint> > type_to_special_;
 
   const ClusterSet &cluster_set_;
 };

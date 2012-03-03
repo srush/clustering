@@ -75,7 +75,7 @@ double SpeechSubgradient::Primal(SpeechSolution *dual_proposal, int round, vecto
   cerr << "Dual Proposal score " << dual_proposal->ScoreSolution() << endl;
   double max_medians = problems_.MaximizeMedians(*dual_proposal, centroids);
   for (int type = 0; type < problems_.num_types(); ++type) {
-    dual_proposal->set_type_to_special(type, (*centroids)[type]);
+    dual_proposal->set_type_to_special(type, 0, (*centroids)[type]);
   }
   
   double dual = 0.0;
@@ -85,14 +85,16 @@ double SpeechSubgradient::Primal(SpeechSolution *dual_proposal, int round, vecto
   dual += hidden_solver_->Rescore(*dual_proposal);
   cerr << "rescore is: " << dual << endl;
 
-  stringstream buf;
-  buf << "/tmp/last_solution" << round;
-  fstream output(buf.str().c_str(), ios::out | ios::binary);
-  speech::SpeechSolution solution;
-  dual_proposal->ToProtobuf(solution, problems_);
-  solution.SerializeToOstream(&output);
-  output.close();
 
+  if (false) {
+    stringstream buf;
+    buf << "/tmp/last_solution" << round;
+    fstream output(buf.str().c_str(), ios::out | ios::binary);
+    speech::SpeechSolution solution;
+    dual_proposal->ToProtobuf(solution, problems_);
+    solution.SerializeToOstream(&output);
+    output.close();
+  }
   return max_medians;
 }
 
@@ -108,7 +110,9 @@ double SpeechSubgradient::DualProposal(SpeechSolution *solution) const {
 double SpeechSubgradient::HiddenDualProposal(SpeechSolution *solution) {
   double dual = hidden_solver_->Solve();  
   for (int type = 0; type < problems_.num_types(); ++type) {
-    solution->set_type_to_hidden(type, hidden_solver_->TypeToHidden(type));
+    for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
+      solution->set_type_to_hidden(type, mode, hidden_solver_->TypeToHidden(type, mode));
+    }
   }
   return dual;
 }
@@ -408,8 +412,10 @@ void SpeechSubgradient::MPLPRound(int round) {
 
   double dual_value = 0.0;
   SpeechSolution *solution = new SpeechSolution(cluster_problems_);
-  dual_value += hidden_solver_->Solve();  
-  dual_value = DualProposal(solution);
+  double cluster_dual = hidden_solver_->Solve();  
+  cerr << "cluster dual " << cluster_dual << endl;
+  dual_value += cluster_dual;
+  dual_value += DualProposal(solution);
   SpeechSolution unary_solution(cluster_problems_);
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
     const ClusterProblem &problem = cluster_problems_.problem(u);  
@@ -438,9 +444,19 @@ void SpeechSubgradient::MPLPRound(int round) {
   vector<DataPoint> centroids;
   double primal_value = Primal(solution, round, &centroids);
 
+  best_centers_.resize(cluster_problems_.num_modes());
+  for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
+    best_centers_[mode].resize(cluster_problems_.num_types());
+    for (int type = 0; type < cluster_problems_.num_types(); ++type) {
+      best_centers_[mode][type] = 
+        problems_.center(hidden_solver_->TypeToHidden(type, mode)).point();
+        
+    }
+  }
+
   if (primal_value < best_primal_value_) {
     best_primal_value_ = primal_value;
-    best_centers_ = centroids;
+    //best_centers_ = centroids;
   } 
 
   vector <DataPoint> centroids2;

@@ -20,7 +20,6 @@ vector<vector<vector<double > > > *ClusterSet::CreateReparameterization() const 
     new vector<vector<vector<double> > >(problems_size());
   for (int problem_id = 0; problem_id < problems_size(); ++problem_id) {
     const ClusterProblem &prob = problem(problem_id);
-    cerr << problem_id << " " << prob.num_states << endl;
     (*reparameterization)[problem_id].resize(prob.num_states);
     for (int state = 0; state < prob.num_states; ++state) {
       int type = prob.MapState(state);
@@ -29,6 +28,39 @@ vector<vector<vector<double > > > *ClusterSet::CreateReparameterization() const 
   }
   return reparameterization;
 } 
+
+
+vector<vector<vector<double> > > *ClusterSet::CreateReparameterization2() const {
+  // Types and Centers
+  vector<vector<vector<double> > > *reparameterization = 
+    new vector<vector<vector<double> > > (num_types());
+  for (int type = 0; type < num_types(); ++type) {
+    (*reparameterization)[type].resize(num_hidden(0));
+    for (int hidden = 0; hidden < num_hidden(0); ++hidden) {
+      (*reparameterization)[type][hidden].resize(2, 0.0);
+    }
+  }
+  return reparameterization;
+} 
+
+
+vector< vector<vector<vector<double > > > > *ClusterSet::CreateReparameterization3() const {
+  vector<vector<vector<vector<double> > > >*reparameterization = 
+    new vector<vector<vector<vector<double> > > > (problems_size());
+  for (int problem_id = 0; problem_id < problems_size(); ++problem_id) {
+    const ClusterProblem &prob = problem(problem_id);
+    (*reparameterization)[problem_id].resize(prob.num_states);
+    for (int state = 0; state < prob.num_states; ++state) {
+      int type = prob.MapState(state);
+      (*reparameterization)[problem_id][state].resize(num_hidden(type));
+      for (int type = 0; type < num_hidden(type); ++type) {
+        (*reparameterization)[problem_id][state][type].resize(2, 0.0);
+      }
+    }
+  }
+  return reparameterization;
+} 
+
 
 
 ClusterProblem::ClusterProblem(int _num_steps, 

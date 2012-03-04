@@ -4,6 +4,8 @@
 //#include "cluster_subgrad.h"
 #include "hidden_solver.h"
 #include "hmm_solver.h"
+#include "hop_solver.h"
+#include "recenter_solver.h"
 #include "hmm_viterbi_solver.h"
 #include "subgrad.h"
 #include "speech_problem.h"
@@ -29,7 +31,9 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // MPLP stuff.
   double MPLPAlignRound(int problem_num);
-  double MPLPClusterRound();
+  //double MPLPClusterRound();
+  double MPLPCountRound();
+  double MPLPRecenterRound(int problem_num);
   void MPLPRound(int round);
  private:
 
@@ -59,6 +63,12 @@ class SpeechSubgradient {//: public SubgradProblem {
   // The decomposition of the hmm part of the problem.
   HiddenSolver *hidden_solver_;
 
+  // Hop solver.
+  vector<HOPSolver *> hop_solvers_;
+
+  // Recenter solvers.
+  vector<vector<RecenterSolver *> > recenter_solvers_;
+
   // Precomputed terms for solvers.
   vector<ThinDistanceHolder *> distance_holders_;
 
@@ -81,6 +91,17 @@ class SpeechSubgradient {//: public SubgradProblem {
   // 
   vector<vector<vector<double> > > *delta_hmm_;
   vector<vector<vector<double> > > *delta_hidden_;
+
+  // For 
+  vector<vector<vector<vector<double> > > > *recenter_reparameterization_;
+  vector<vector<vector<double> > > *hop_reparameterization_;
+
+  vector<vector<vector<vector<double> > > > *recenter_reparameterization2_;
+  vector<vector<vector<double> > > *hop_reparameterization2_;
+
+  // 
+  vector<vector<vector<vector<double> > > > *delta_recenter_;
+  vector<vector<vector<double> > > *delta_hop_;
 
   // Best primal value seen so far.
   double best_primal_value_;

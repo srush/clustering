@@ -64,6 +64,8 @@ public:
   
   // Creates an reparameterization array for the cluster problem.
   vector<vector<vector<double > > > *CreateReparameterization() const;
+  vector<vector<vector<double > > > *CreateReparameterization2() const;
+  vector< vector<vector<vector<double > > > > *CreateReparameterization3() const;
 
   int problems_size() const { return cluster_problems_.size(); } 
   const ClusterProblem &problem(int index) const {

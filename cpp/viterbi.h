@@ -13,9 +13,6 @@ class Viterbi {
   // Initialize the viterbi chart.
   void Initialize();
 
-  // Reset the chart without resizing.
-  void ResetChart();
-
   // Run the Viterbi algorithm.
   void ForwardScores();
   void BackwardScores();
@@ -56,31 +53,32 @@ class Viterbi {
 
 
  private:
+  // Reset the chart without resizing.
+  void ResetChart();
+
   // Number of rows of the trellis.
   int num_states_;
 
   // Number of columns of the trellis.
   int num_timesteps_;
 
+  // Number of centers available for each state.
   int num_centers_;
 
+  // The minimum time steps to stay in each state.
   int min_width_;
 
   // Charts for viterbi
-  vector<vector<double> > best_score_;
-  
- 
   vector<vector<vector<double > > > forward_scores_;
   vector<vector<vector<double > > > backward_scores_;
   
   // The center of the last state.
   vector<vector<vector<int> > > back_pointer_;
 
-  vector< vector<double> > best_back_;
+  // The parameters of the viterbi model.
   vector< vector<double> > scores_;
   vector< vector<double> > lambda_;
-  vector<vector< vector<double> > > state_score_;
-
+  vector< vector< vector<double> > > state_score_;
 };
 
 #endif

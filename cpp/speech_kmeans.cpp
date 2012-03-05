@@ -200,7 +200,7 @@ void SpeechKMeans::InitializeCenters() {
     for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
       DataPoint point(num_features_);
       for (int feat = 0; feat < num_features_; ++feat) {
-        point[feat] = rand() / (float) RAND_MAX;
+        point[feat] = 10* rand() / (float) RAND_MAX;
       }
       centers_[mode].push_back(point);
     }

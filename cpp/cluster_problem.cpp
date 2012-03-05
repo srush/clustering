@@ -24,6 +24,9 @@ vector<vector<vector<double > > > *ClusterSet::CreateReparameterization() const 
     for (int state = 0; state < prob.num_states; ++state) {
       int type = prob.MapState(state);
       (*reparameterization)[problem_id][state].resize(num_hidden(type), 0.0);
+      for (int hidden = 0; hidden < num_hidden(type); ++hidden) {
+        (*reparameterization)[problem_id][state][hidden] =0.0;
+      }
     }
   }
   return reparameterization;
@@ -38,6 +41,8 @@ vector<vector<vector<double> > > *ClusterSet::CreateReparameterization2() const 
     (*reparameterization)[type].resize(num_hidden(0));
     for (int hidden = 0; hidden < num_hidden(0); ++hidden) {
       (*reparameterization)[type][hidden].resize(2, 0.0);
+      (*reparameterization)[type][hidden][0] = 0.0;
+      (*reparameterization)[type][hidden][1] = 0.0;
     }
   }
   return reparameterization;
@@ -55,6 +60,8 @@ vector< vector<vector<vector<double > > > > *ClusterSet::CreateReparameterizatio
       (*reparameterization)[problem_id][state].resize(num_hidden(type));
       for (int type = 0; type < num_hidden(type); ++type) {
         (*reparameterization)[problem_id][state][type].resize(2, 0.0);
+        (*reparameterization)[problem_id][state][type][0] = 0.0;
+        (*reparameterization)[problem_id][state][type][1] = 0.0;
       }
     }
   }

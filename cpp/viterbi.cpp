@@ -13,14 +13,12 @@ void Viterbi::Initialize() {
   forward_scores_.resize(num_timesteps_ + 1);
   backward_scores_.resize(num_timesteps_ + 1);
   back_pointer_.resize(num_timesteps_ + 1);
-  best_back_.resize(num_timesteps_ + 1);
   state_score_.resize(num_timesteps_ + 1);
   for (int m = 0; m < num_timesteps_ + 1; ++m) {
     forward_scores_[m].resize(num_states_ + 1);
     backward_scores_[m].resize(num_states_ + 1);
     back_pointer_[m].resize(num_states_ + 1);
     scores_[m].resize(num_centers_);
-    best_back_[m].resize(num_states_ + 1, INF);
     state_score_[m].resize(num_states_ + 1);
     for (int i = 0; i < num_states_ + 1; ++i) {
       forward_scores_[m][i].resize(num_centers_);
@@ -60,9 +58,12 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
     (*min_marginals)[i].resize(num_centers_, INF);
   }
 
+  vector< vector<double> > best_back(num_timesteps_ + 1);
+
   clock_t start = clock();
   double best_score = forward_scores_[num_timesteps_][num_states_][0];
   for (int m = 0; m <= num_timesteps_; ++m) {
+    best_back[m].resize(num_states_ + 1, INF);
     for (int i = 0; i <= num_states_; ++i) {
       if (i > m) continue;
       for (int c = 0; c < num_centers_; ++c) {
@@ -71,8 +72,8 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
           pen = lambda(i, c);
         }
         double trial = backward_scores_[m][i][c] + pen;
-        if (trial < best_back_[m][i]) {
-          best_back_[m][i] = trial;
+        if (trial < best_back[m][i]) {
+          best_back[m][i] = trial;
         }
       }
     }
@@ -89,7 +90,7 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
       if (i > m) continue;
       for (int c = 0; c < num_centers_; ++c) {
         double trial1 = forward_scores_[m][i][c] + backward_scores_[m + 1][i][c];
-        double trial2 = forward_scores_[m][i][c] + best_back_[m + 1][i + 1];
+        double trial2 = forward_scores_[m][i][c] + best_back[m + 1][i + 1];
         if (trial1 < (*min_marginals)[i][c]) {
           (*min_marginals)[i][c] = trial1;
         }

@@ -49,7 +49,7 @@ SpeechProblemSet::SpeechProblemSet(const vector<Utterance *> &utterances,
                                 num_types, 
                                 0, //TODO, 
                                 width_limit, 
-                                1);
+                                2);
   for (uint u = 0; u < utterances_.size(); ++u) {
     cluster_problems[u]->cluster_set_ = cluster_set_;
   }

@@ -15,28 +15,18 @@ class SpeechSubgradient {//: public SubgradProblem {
  public:
   SpeechSubgradient(const SpeechProblemSet &problems);
 
-  //void Solve(const SubgradInfo &info, 
-  //SubgradResult *result);
-  
-  // Update the weights with vector.
-  //void Update(const DataPoint &data_point, double alpha);
-
   const vector<vector<DataPoint> > &centers() {
     return best_centers_;
-  }
-
-  void set_ball_holder(const BallHolder *ball_holder) {
-    ball_holder_ = ball_holder;
   }
 
   // MPLP stuff.
   double MPLPAlignRound(int problem_num);
   //double MPLPClusterRound();
   double MPLPCountRound();
-  double MPLPRecenterRound(int problem_num);
-  void MPLPRound(int round);
- private:
 
+  void MPLPRound(int round);
+
+ private:
   double DualProposal(SpeechSolution *solution) const;
   double Primal(SpeechSolution *solution, int round, vector<DataPoint > *centroids);
   void SetReparameterization();
@@ -52,7 +42,17 @@ class SpeechSubgradient {//: public SubgradProblem {
                    double rate);
 
   double MPLPSubgradient(double rate);
-  
+
+  // Run one round of coordinate descent.
+  void DescentRound();  
+  double ComputeCompleteDual(SpeechSolution *solution);
+  double ComputeDualSegment(SpeechSolution *solution);
+  double ComputeDualRecenter(SpeechSolution *solution);
+  void CheckAlignRound(int u);
+  void CheckRecenter(int problem, int i);
+  void CheckCountRound();
+  double MPLPRecenterRound(int problem_num, int state);
+
   // The information of the underlying speech problem
   const SpeechProblemSet &problems_;
   const ClusterSet &cluster_problems_;
@@ -78,7 +78,6 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // The number of types.
   int num_features_;
-  const BallHolder *ball_holder_;
 
   // Subgrad reparameterizations.
   vector<vector<vector<double> > > *hmm_reparameterization_;

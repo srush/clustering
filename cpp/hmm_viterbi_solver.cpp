@@ -10,7 +10,6 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
                          3);
   viterbi_->Initialize();
 
-  viterbi_->ResetChart();
   clock_t end = clock();
   cerr << "Initializing viterbi " << end - start << endl; 
 
@@ -20,15 +19,11 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
     for (int c = 0; c < cp_.num_hidden(0); ++c) {
       double score = distances_.get_distance(m, c);
       viterbi_->set_score(m, c, score);
-      //cerr << "score " << m << " " << c << " " << score << endl;
     }
   }
 
   for (int i = 0; i < cp_.num_states; i++) {
     for (int c = 0; c < cp_.num_hidden(0); ++c) {
-      // REPARA
-      //assert(false);
-      //double score = distances_.Distance(m, c);
       viterbi_->set_lambda(i, c, (*reparameterization_)[i][c]);
     }
   }
@@ -39,6 +34,11 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
 }
 
 double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu) {
+  mu->resize(cp_.num_states); 
+  for (int i = 0; i < cp_.num_states; ++i) {
+    int type = cp_.MapState(i);
+    (*mu)[i].resize(cp_.num_hidden(type));
+  }
 
   Viterbi *viterbi = InitializeViterbi();
   clock_t start = clock();

@@ -9,6 +9,7 @@
 #include "hmm_viterbi_solver.h"
 #include "subgrad.h"
 #include "speech_problem.h"
+#include "hidden_kmedian_solver.h"
 
 // Setup for the speech subgradient solver.
 class SpeechSubgradient {//: public SubgradProblem {
@@ -52,6 +53,7 @@ class SpeechSubgradient {//: public SubgradProblem {
   void CheckRecenter(int problem, int i);
   void CheckCountRound();
   double MPLPRecenterRound(int problem_num, int state);
+  double MPLPKMediansRound(int type);
 
   // The information of the underlying speech problem
   const SpeechProblemSet &problems_;
@@ -63,11 +65,14 @@ class SpeechSubgradient {//: public SubgradProblem {
   // The decomposition of the hmm part of the problem.
   HiddenSolver *hidden_solver_;
 
+  vector<KMediansSolver * > kmedian_solvers_;
+
   // Hop solver.
   vector<HOPSolver *> hop_solvers_;
 
   // Recenter solvers.
   vector<vector<RecenterSolver *> > recenter_solvers_;
+
 
   // Precomputed terms for solvers.
   vector<ThinDistanceHolder *> distance_holders_;

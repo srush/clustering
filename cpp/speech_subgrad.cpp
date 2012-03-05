@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 using namespace std;
+#define RECENTER false
 
 SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems):
   problems_(problems), cluster_problems_(problems.MakeClusterSet()),
@@ -21,6 +22,7 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems):
 
   for (int type = 0; type < problems.num_types(); ++type) {
     hop_solvers_.push_back(new HOPSolver(type, cluster_problems_.num_modes()));
+    kmedian_solvers_.push_back(new KMediansSolver(type, cluster_problems_.num_modes()));
   }
   hidden_solver_ = new HiddenSolver(cluster_problems_);
 
@@ -85,6 +87,7 @@ void SpeechSubgradient::SetReparameterization() {
   }
   for (int type = 0; type < cluster_problems_.num_types(); ++type) {
     hop_solvers_[type]->set_reparameterization(&(*hop_reparameterization_)[type]);
+    kmedian_solvers_[type]->set_reparameterization(&(*hidden_reparameterization_)[type]);
   }
   //hidden_solver_->set_reparameterization(hidden_reparameterization_);
 }
@@ -101,6 +104,7 @@ void SpeechSubgradient::SetReparameterization2() {
   for (int type = 0; type < cluster_problems_.num_types(); ++type) {
     hop_solvers_[type]->
       set_reparameterization(&(*hop_reparameterization2_)[type]);
+    kmedian_solvers_[type]->set_reparameterization(&(*hidden_reparameterization2_)[type]);
   }
 
   //hidden_solver_->set_reparameterization(hidden_reparameterization2_);
@@ -496,19 +500,58 @@ double SpeechSubgradient::MPLPRecenterRound(int problem, int i) {
   return score;
 }
 
+double SpeechSubgradient::MPLPKMediansRound(int type) {
+  // Resize the max marginal set. 
+  vector<double>  max_marginals;
+  double score = kmedian_solvers_[type]->MaxMarginals(&max_marginals);
+
+  int total_states =  problems_.type_occurence_size(type);
+  int num_hidden = cluster_problems_.num_hidden(0);
+  // Reparameterize the distribution based on max-marginals.
+  for (int j = 0; j < problems_.type_occurence_size(type); ++j) {
+    const StateLocation &loc = problems_.type_occurence(type, j);
+    for (int hidden = 0; hidden < num_hidden; ++hidden) {
+      (*delta_hidden_)[loc.problem][loc.state][hidden] = 
+        (-(*delta_hmm_)[loc.problem][loc.state][hidden]) + 
+        (1.0 / total_states) * (max_marginals[hidden]);
+    }
+  }
+
+  for (int j = 0; j < problems_.type_occurence_size(type); ++j) {
+    const StateLocation &loc = problems_.type_occurence(type, j);
+    for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
+      (*hmm_reparameterization_)[loc.problem][loc.state][hidden] = 
+        (*delta_hidden_)[loc.problem][loc.state][hidden];
+      (*hidden_reparameterization2_)[loc.problem][loc.state][hidden] = -
+        (*delta_hidden_)[loc.problem][loc.state][hidden];
+    }
+  }
+  return score;
+}
+
+
 void SpeechSubgradient::DescentRound() {
   double score;
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
     clock_t start = clock();
     score = MPLPAlignRound(u);
     cerr << "Align: " << score << " " << clock() - start  << endl;
-    start = clock();
-    for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
-      score += MPLPRecenterRound(u, i);
+
+    if (RECENTER) {
+      start = clock();
+      for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
+        score += MPLPRecenterRound(u, i);
+      }
+      score += MPLPCountRound();
+      cerr << "Recenter: " << score << " " << clock() - start  << endl;
     }
-    score += MPLPCountRound();
-    cerr << "Recenter: " << score << " " << clock() - start  << endl;
   }
+  if (!RECENTER) {
+    for (int l = 0; l < cluster_problems_.num_types(); ++l) {
+      MPLPKMediansRound(l);
+    }
+  }
+
 }
 
 double SpeechSubgradient::ComputeCompleteDual(SpeechSolution *solution) {

@@ -1,0 +1,70 @@
+package speech;
+
+message Phoneme {
+    required int32 id = 1;
+    required string name = 2;
+}
+
+message PhonemeSet {
+    repeated Phoneme phonemes = 1;
+}
+
+message Vector {
+    repeated double dim = 1;
+}
+
+message Utterance {
+    // Phones in the utterance. Represented as pointers to the phoneme set. 
+    repeated int32 phones = 1;
+
+    // The timesteam of data points.
+    repeated Vector sequence = 2;
+
+    // The number of dimensions of the feature vectors.
+    required int32 feature_dimensions = 3;
+
+    // The sentence in human readable form.
+    optional string sentence = 4;
+
+    // The correct divides of the phones.
+    repeated int32 correct_division = 5; 
+}
+
+message UtteranceSet {
+    // List of utterances.
+    repeated Utterance utterances = 1;
+}
+
+message Segment {
+    repeated bool address = 1;
+}
+
+message CenterSet {
+    // The list of possible centers.
+    repeated Vector centers = 1;
+
+    repeated Segment segments = 2;
+}
+
+message UtteranceAlignment {    
+    // A proposed segmentation.
+    repeated int32 proposed_segmentation = 1;   
+
+    repeated int32 selected_centers = 2;
+}
+
+message MultiCenter {
+   repeated Vector centers = 1; 
+}
+
+message SpeechSolution {
+    // 
+    repeated UtteranceAlignment alignments = 1;
+
+    // The centers chosen for each of the alignments.
+    repeated Vector phoneme_centers = 2;
+
+    repeated MultiCenter phoneme_multi_centers = 3;
+}
+
+

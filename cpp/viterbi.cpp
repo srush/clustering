@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include "viterbi.h"
 #include <vector>
 #include <cmath>
@@ -6,6 +7,7 @@
 using namespace std;
 #define DEBUG 1
 #define INF 1e10
+typedef unsigned int uint;
 
 void Viterbi::Initialize() {
   // Size the charts correctly.

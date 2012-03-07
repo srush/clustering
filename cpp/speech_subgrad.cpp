@@ -751,6 +751,7 @@ void SpeechSubgradient::MPLPRound(int round) {
   SetReparameterization();
   SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);
   DescentRound(dual_solution);
+  cerr << "Starting reparameterization" << endl;
   SetReparameterization2();
 
   cerr << "Starting dual" << endl;
@@ -762,6 +763,7 @@ void SpeechSubgradient::MPLPRound(int round) {
   cerr << "Done dual" << endl;
   //double primal_value = Primal(dual_solution, round, &centroids);
   Primal(dual_solution, round, &centroids);
+  cerr << "Starting primal" << endl;
   vector<vector<DataPoint> >centers; 
   centers.resize(cluster_problems_.num_modes());
   for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {

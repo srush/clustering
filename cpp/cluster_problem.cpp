@@ -1,5 +1,5 @@
 #include "cluster_problem.h"
-
+typedef unsigned int uint;
 ClusterSet::ClusterSet(const vector<ClusterProblem *> cluster_problems,
                        int num_hidden,
                        int num_types,

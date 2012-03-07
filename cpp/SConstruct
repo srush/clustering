@@ -5,7 +5,7 @@ env = Environment()
 # env.Append(CXX=["g++-4.1"], 
 #            CPPFLAGS=['-Werror','-Wall','-g', '-fstack-protector-all'])
 
-env.Append(CXX=["g++-4.1"], 
+env.Append(
            CPPFLAGS=['-Werror','-Wall','-O2', '-DNDEBUG'])
 
 #env['BUILDERS']['Protoc'] = Builder(action = ProtocBuilder)
@@ -50,15 +50,15 @@ speech_solve = env.Library('speech_solve',
                            ["speech_problem.cpp", speech, distance, cluster, span, semi, viterbi],
                            LIBS = [speech, distance, cluster, span, semi, viterbi])
 
-env.Append(LIBPATH =('.', "/home/alexanderrush/libs/gurobi452/linux64/lib"))
-env.Append(CPPPATH =('.', "/home/alexanderrush/libs/gurobi452/linux64/include"))
+env.Append(LIBPATH =('.', "/home/alexanderrush/libs/gurobi452/linux64/lib", "/afs/csail.mit.edu/u/s/srush/h/gurobi452/linux64/lib/"))
+env.Append(CPPPATH =('.', "/home/alexanderrush/libs/gurobi452/linux64/include", "/afs/csail.mit.edu/u/s/srush/h/gurobi452/linux64/include/"))
 
 lp = env.Library('alignment_lp',
                  ['alignment_lp.cpp'], LIBS =[speech_solve, "gurobi45", "gurobi_c++"])
 
-env.Program('semi_test', 
-            ['semimarkov_test.cpp', semi],
-            LIBS =["gtest"])
+# env.Program('semi_test', 
+#             ['semimarkov_test.cpp', semi],
+#             LIBS =["gtest"])
 
 # env.Program('distances_test', 
 #             ['distances_test.cpp', distance],
@@ -76,9 +76,9 @@ env.Program('semi_test',
 
 env.Program('main_mplp', 
             ['run_mplp.cpp', distance, speech_solve, viterbi, lp, cluster],
-            LIBS =["gtest", "protobuf", "pthread", "gurobi45", "gurobi_c++", "gflags", distance, speech, 
+            LIBS =[ "protobuf", "pthread", "gurobi45", "gurobi_c++", "gflags", distance, speech, 
                    speech_solve, cluster, span, semi, viterbi, lp])
 
-env.Program('test_kmedians', 
-            ['test_kmedians.cpp', "kmedians.cpp"],
-            LIBS =["gtest", "protobuf", "pthread", "gurobi45", "gurobi_c++", "gflags" ])
+# env.Program('test_kmedians', 
+#             ['test_kmedians.cpp', "kmedians.cpp"],
+#             LIBS =["gtest", "protobuf", "pthread", "gurobi45", "gurobi_c++", "gflags" ])

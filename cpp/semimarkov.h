@@ -2,7 +2,6 @@
 #define SEMIMARKOV_H
 
 #include <vector>
-#include "gtest/gtest.h"
 #include "assert.h"
 #include "span_chart.h"
 using namespace std;

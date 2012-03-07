@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include "semimarkov.h"
 #include <time.h>
 #define DEBUG 0

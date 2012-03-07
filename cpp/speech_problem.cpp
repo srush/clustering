@@ -1,7 +1,9 @@
+#include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include <assert.h>
-
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 #include "distances.h"
 #include "hidden_solver.h"
 #include "speech.h"
@@ -363,11 +365,10 @@ SpeechProblemSet *SpeechProblemSet::ReadFromFile(string phoneme_set_file,
                                                  string utterance_file,
                                                  string center_file) {
   // Read the phoneme type set.
-  fstream input(phoneme_set_file.c_str(), ios::in | ios::binary);
   speech::PhonemeSet phoneme_set_buf;
   speech::UtteranceSet utterance_buf;
   speech::CenterSet center_buf;
-
+  fstream input(phoneme_set_file.c_str(), ios::in | ios::binary);
   cerr << "Reading phoneme set." << endl;
   phoneme_set_buf.ParseFromIstream(&input);
   PhonemeSet *phoneme_set = PhonemeSet::FromProtobuf(phoneme_set_buf);
@@ -376,9 +377,13 @@ SpeechProblemSet *SpeechProblemSet::ReadFromFile(string phoneme_set_file,
 
   // Read in the utterances. 
   vector<Utterance *> *utterances = new vector<Utterance *>();
-  fstream input2(utterance_file.c_str(), ios::in | ios::binary);
+  FILE *fd = fopen(utterance_file.c_str(), "r");
+  google::protobuf::io::FileInputStream fs(fileno(fd));
+  google::protobuf::io::CodedInputStream coded_fs(&fs);
+  coded_fs.SetTotalBytesLimit(500*1024*1024, 1);
+
   cerr << "Reading utterance." << endl;
-  utterance_buf.ParseFromIstream(&input2);  
+  utterance_buf.ParseFromCodedStream(&coded_fs);  
   for (int i = 0; i < utterance_buf.utterances_size(); ++i) {
     Utterance *utterance = Utterance::FromProtobuf(*phoneme_set, 
                                                    utterance_buf.utterances(i));
@@ -403,7 +408,7 @@ SpeechProblemSet *SpeechProblemSet::ReadFromFile(string phoneme_set_file,
 
   SpeechProblemSet *problem_set = new SpeechProblemSet(*utterances, centers);
   input.close();
-  input2.close();
+  fs.Close();
   input3.close();
 
   return problem_set;

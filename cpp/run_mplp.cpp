@@ -27,7 +27,7 @@ static const bool port_dummy =
 int main(int argc, char **argv) {
   ParseCommandLineFlags(&argc, &argv, true);
 
-  
+
   SpeechProblemSet *speech_problems = 
     SpeechProblemSet::ReadFromFile("problems/"+FLAGS_problem_name+"_pho", 
                                    "problems/"+FLAGS_problem_name+"_utt", 

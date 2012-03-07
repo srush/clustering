@@ -4,7 +4,8 @@
 
 SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set): 
   problems_(problem_set), cluster_problems_(problem_set.MakeClusterSet()),
-  path_(cluster_problems_.problems_size()) {
+  path_(cluster_problems_.problems_size()),
+  mode_centers_(cluster_problems_.problems_size()) {
   num_types_ = cluster_problems_.num_types();
   num_features_ = problem_set.num_features();
   distances_.resize(cluster_problems_.problems_size());
@@ -136,8 +137,7 @@ double SpeechKMeans::Expectation(int utterance_index,
   // Run semimarkov algorithm.
   //vector<int> path;
   viterbi.ForwardScores();
-  vector<int> centers;
-  double score = viterbi.GetBestPath(&path_[u], &centers);
+  double score = viterbi.GetBestPath(&path_[u], &mode_centers_[u]);
   (*correctness) = utterance.ScoreAlignment(path_[u]);
   cerr << "Correctness: " << *correctness << endl; 
 
@@ -146,7 +146,7 @@ double SpeechKMeans::Expectation(int utterance_index,
   for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
     (*sets)[mode].resize(num_types_);
   }
-  problems_.AlignmentClusterSet(utterance_index, path_[u], centers, sets);
+  problems_.AlignmentClusterSet(utterance_index, path_[u], mode_centers_[u], sets);
 
   // collapse to modes. 
   assert(path_[u].size() - 1 == (uint)cluster_problem.num_states);
@@ -200,7 +200,7 @@ void SpeechKMeans::InitializeCenters() {
     for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
       DataPoint point(num_features_);
       for (int feat = 0; feat < num_features_; ++feat) {
-        point[feat] = 10* rand() / (float) RAND_MAX;
+        point[feat] = rand() / (float) RAND_MAX;
       }
       centers_[mode].push_back(point);
     }
@@ -224,9 +224,14 @@ SpeechSolution *SpeechKMeans::MakeSolution() {
     const ClusterProblem &problem = cluster_problems_.problem(u);
     SpeechAlignment *align = solution->mutable_alignment(u);
     vector<int> *solution = align->mutable_alignment();
+    vector<int> *modes = align->mutable_mode_align();
+    modes->resize(problem.num_states + 1);
     solution->resize(problem.num_states + 1);
     for (int i = 0; i < problem.num_states + 1; ++i) {
       (*solution)[i] = path_[u][i];
+      if (i < problem.num_states) {
+        (*modes)[i] = mode_centers_[u][i];
+      }
     }
   }
   return solution;

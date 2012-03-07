@@ -19,7 +19,8 @@ class HMMViterbiSolver {
   double Solve(SpeechAlignment *alignment);
 
   // Compute the max-marginals for this problem.
-  double MaxMarginals(vector<vector<double> > *mu);
+  double MaxMarginals(vector<vector<double> > *mu, 
+                      SpeechAlignment *alignment);
 
   void set_reparameterization(const vector<vector<double> > *reparameterization) {
     reparameterization_ = reparameterization;
@@ -42,6 +43,8 @@ class HMMViterbiSolver {
 
   double ScoreSegment(int start, int offset, int state, int center) const;
   double PrimalScoreSegment(int start, int offset, int state, int center) const;
+
+
  private:
   Viterbi *InitializeViterbi();
 
@@ -59,7 +62,6 @@ class HMMViterbiSolver {
   const vector<vector<double> > *reparameterization_;
 
   Viterbi *viterbi_;
-
 };
 
 #endif

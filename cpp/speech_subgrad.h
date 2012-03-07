@@ -21,7 +21,7 @@ class SpeechSubgradient {//: public SubgradProblem {
   }
 
   // MPLP stuff.
-  double MPLPAlignRound(int problem_num);
+  double MPLPAlignRound(int problem_num, SpeechSolution *solution);
   //double MPLPClusterRound();
   double MPLPCountRound();
 
@@ -45,10 +45,11 @@ class SpeechSubgradient {//: public SubgradProblem {
   double MPLPSubgradient(double rate);
 
   // Run one round of coordinate descent.
-  void DescentRound();  
+  void DescentRound(SpeechSolution *solution);  
   double ComputeCompleteDual(SpeechSolution *solution);
   double ComputeDualSegment(SpeechSolution *solution);
   double ComputeDualRecenter(SpeechSolution *solution);
+  void CheckKMedians(int type);
   void CheckAlignRound(int u);
   void CheckRecenter(int problem, int i);
   void CheckCountRound();
@@ -83,6 +84,8 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // The number of types.
   int num_features_;
+
+  int total_subgrad_;
 
   // Subgrad reparameterizations.
   vector<vector<vector<double> > > *hmm_reparameterization_;

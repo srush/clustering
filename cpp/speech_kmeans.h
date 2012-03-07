@@ -58,6 +58,7 @@ class SpeechKMeans {
 
   // The last path from the expectation state.
   vector<vector<int> > path_;
+  vector<vector<int> > mode_centers_;
   
 };
 

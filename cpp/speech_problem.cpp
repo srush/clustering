@@ -49,7 +49,7 @@ SpeechProblemSet::SpeechProblemSet(const vector<Utterance *> &utterances,
                                 num_types, 
                                 0, //TODO, 
                                 width_limit, 
-                                2);
+                                1);
   for (uint u = 0; u < utterances_.size(); ++u) {
     cluster_problems[u]->cluster_set_ = cluster_set_;
   }
@@ -167,7 +167,8 @@ DataPoint SpeechProblemSet::Centroid(int problem, int start, int end) const {
   return query / float(end - start + 1);
 }
 
-double SpeechProblemSet::MaximizeMedians(const SpeechSolution &bad_speech_solution,
+double SpeechProblemSet::MaximizeMedians(
+                                         const SpeechSolution &bad_speech_solution,
                                          vector<DataPoint> *centroids) const {
   double total = 0.0;
   centroids->clear();

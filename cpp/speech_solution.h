@@ -35,6 +35,10 @@ class SpeechAlignment {
   vector<int> *mutable_hidden_alignment() {
     return &hidden_align_;
   }
+
+  vector<int> *mutable_mode_align() {
+    return &mode_align_;
+  }
   
   int alignment_size() const {
     return alignment_.size() - 1;
@@ -43,6 +47,7 @@ class SpeechAlignment {
   void ToProtobuf(speech::UtteranceAlignment &align) const {
     for (uint i = 0; i < alignment_.size(); ++i) {
       align.add_proposed_segmentation(alignment_[i]);
+      align.add_selected_centers(mode_align_[i]);
     }
   }
 
@@ -55,6 +60,8 @@ class SpeechAlignment {
 
   // The alignment of states to hidden. Assumed to match type_to_hidden.
   vector<int> hidden_align_;
+
+  vector<int> mode_align_;
 };
 
 class SpeechSolution {
@@ -128,6 +135,10 @@ class SpeechSolution {
 
   int TypeToHidden(int type, int mode) const {
     return type_to_hidden_[mode][type];
+  }
+
+  DataPoint TypeToSpecial(int type, int mode) const {
+    return type_to_special_[mode][type];
   }
 
   SpeechAlignment *mutable_alignment(int problem) {

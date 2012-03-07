@@ -33,7 +33,8 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
   return viterbi_;
 }
 
-double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu) {
+double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu,
+                                      SpeechAlignment *alignment) {
   mu->resize(cp_.num_states); 
   for (int i = 0; i < cp_.num_states; ++i) {
     int type = cp_.MapState(i);
@@ -46,9 +47,15 @@ double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu) {
   viterbi->ForwardScores();
   clock_t end = clock();
   cerr << "Forward time " << end - start << endl;
-  vector<int> path;
-  double score = viterbi->GetBestPath(&path, &state_to_center_);
 
+  double score = viterbi->GetBestPath(alignment->mutable_alignment(), 
+                                      &state_to_center_);
+  state_to_center_.resize(cp_.num_states + 1);
+  vector<int> *hidden = alignment->mutable_hidden_alignment();
+  hidden->resize(cp_.num_states + 1);
+  for (int state = 0; state < cp_.num_states + 1; ++state) {
+    (*hidden)[state] = state_to_center_[state];
+  }
 
   start = clock();
   viterbi->BackwardScores();
@@ -143,7 +150,9 @@ double HMMViterbiSolver::Solve(SpeechAlignment *alignment) {
 
   // Run the semi-markov model.
   viterbi->ForwardScores();
-  double score = viterbi->GetBestPath(alignment->mutable_alignment(), &state_to_center_);  
+
+  double score = 
+    viterbi->GetBestPath(alignment->mutable_alignment(), &state_to_center_);  
   state_to_center_.resize(cp_.num_states);
   double check_score = 0.0;
 

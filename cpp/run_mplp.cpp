@@ -10,6 +10,7 @@ using namespace google;
 
 DEFINE_string(problem_name, "", "The name of the problem to run.");
 DEFINE_string(algorithm, "lp", "The algorithm to run.");
+DEFINE_string(name, "", "The name of the output.");
 
 
 static bool ValidateSet(const char *flagname, const string &value) {
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
         
         // write out kmeans solution
         stringstream buf;
-        buf << "results/" << FLAGS_problem_name << "_lr_solution_" << i;
+        buf << "results/" << FLAGS_problem_name << "_lr_solution_" << FLAGS_name << " " << i;
         fstream output(buf.str().c_str(), ios::out | ios::binary);
         SpeechSolution *solution = kmeans.MakeSolution();
         speech::SpeechSolution sol;

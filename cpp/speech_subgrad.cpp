@@ -43,6 +43,7 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems):
   delta_recenter_ = cluster_problems_.CreateReparameterization3();  
 
   // Set random for delta hop.
+  
   for (int problem_id = 0; problem_id < cluster_problems_.problems_size(); ++problem_id) {
     const ClusterProblem &prob = cluster_problems_.problem(problem_id);
     for (int state = 0; state < prob.num_states; ++state) {
@@ -142,7 +143,6 @@ double SpeechSubgradient::Primal(SpeechSolution *dual_proposal,
   }
   dual += hidden_solver_->Rescore(*dual_proposal);
   cerr << "rescore is: " << dual << endl;
-
 
   if (false) {
     stringstream buf;
@@ -774,16 +774,19 @@ void SpeechSubgradient::MPLPRound(int round) {
       //problems_.center(dual_solution->TypeToHidden(type, mode)).point();        
     }
   }
-  
-  SpeechKMeans kmeans(problems_);
-  kmeans.SetCenters(centers);
-  kmeans.set_use_medians(true);
-  double primal_value = kmeans.Run(2);
 
-  if (primal_value < best_primal_value_) {
-    best_primal_value_ = primal_value;
-    best_centers_ = centers;
-  } 
+  double primal_value = 0.0;
+  if (round % 3 == 0) { 
+    SpeechKMeans kmeans(problems_);
+    kmeans.SetCenters(centers);
+    kmeans.set_use_medians(true);
+    primal_value = kmeans.Run(2);
+
+    if (primal_value < best_primal_value_) {
+      best_primal_value_ = primal_value;
+      best_centers_ = centers;
+    } 
+  }
 
   // vector <DataPoint> centroids2;
   // problems_.MaximizeMediansHidden(solution, &centroids2);

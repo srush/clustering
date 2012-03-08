@@ -62,6 +62,8 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < 100; ++i) {
       kmeans.set_use_gmm();
+
+      //kmeans.set_use_gmm();
       kmeans.Run(10);
       
       stringstream buf;

@@ -24,6 +24,10 @@ class SpeechKMeans {
     use_medians_ = use_medians;
   }
 
+  void set_use_gmm() {
+    use_gmm_ = true;
+  }
+
   const vector<vector<DataPoint> > &centers() { return centers_; } 
 
   SpeechSolution *MakeSolution();
@@ -36,6 +40,13 @@ class SpeechKMeans {
                      vector<vector<vector<DataPoint> > > *sets
                      );
   void Maximization(const vector<vector<vector<DataPoint> > > &sets);
+
+  void GMMMaximization(const vector<vector<DataPoint> > &estimators, 
+                       const vector<vector<double> > &counts);
+
+  double GMMExpectation(int utterance_index,
+                        vector<vector<DataPoint> > &estimators, 
+                        vector<vector<double> > &counts);
 
   
   // The information of the underlying speech problem
@@ -53,6 +64,8 @@ class SpeechKMeans {
 
   // Force medians instead of means.
   bool use_medians_;
+
+  bool use_gmm_;
 
   vector<ThinDistanceHolder *> distances_;
 

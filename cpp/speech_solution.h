@@ -133,6 +133,8 @@ class SpeechSolution {
   void ToProtobuf(speech::SpeechSolution &solution, 
                   const SpeechProblemSet &speech_problem) const;
 
+  void FromProtobuf(const speech::SpeechSolution &solution);
+
   int TypeToHidden(int type, int mode) const {
     return type_to_hidden_[mode][type];
   }

@@ -9,6 +9,10 @@ using namespace std;
 #define INF 1e10
 typedef unsigned int uint;
 
+double LogAdd(double a, double b) {
+  return log(exp(a) * exp(b));
+}
+
 void Viterbi::Initialize() {
   // Size the charts correctly.
   scores_.resize(num_timesteps_ + 1);  
@@ -54,7 +58,29 @@ void Viterbi::ResetChart() {
   }
 }
 
+void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
+  assert(use_sum_);
+  marginals->resize(num_timesteps_ + 1);
+  for (int m = 0; m < num_timesteps_; ++m) {
+    (*marginals)[m].resize(num_states_);      
+    for (int state = 0; state < num_states_; ++state) {
+      (*marginals)[m][state].resize(num_centers_, 0.0);
+    }
+  }
+  double normalization = 
+    forward_scores_[num_timesteps_][num_states_][0];
+  for (int m = 0; m < num_timesteps_; ++m) {
+    for (int state = 0; state < num_states_; ++state) {
+      for (int c = 0; c < num_centers_; ++c) {
+        (*marginals)[m][state][c] =  
+          exp((forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) - normalization);
+      }
+    }
+  }
+}
+
 void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
+  assert(!use_sum_);
   min_marginals->resize(num_states_ + 1);
   for (int i = 0; i < num_states_; ++i) {
     (*min_marginals)[i].resize(num_centers_, INF);
@@ -74,6 +100,7 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
           pen = lambda(i, c);
         }
         double trial = backward_scores_[m][i][c] + pen;
+
         if (trial < best_back[m][i]) {
           best_back[m][i] = trial;
         }
@@ -127,6 +154,7 @@ void Viterbi::ForwardScores() {
     for (int i = 0; i <= num_states_; ++i) {
       //if (i * min_width_ > m) continue; 
       double b = INF;
+      double b_sum = 0.0;
       int back_center = -1;
 
       // Find the best possble transition center.
@@ -139,11 +167,14 @@ void Viterbi::ForwardScores() {
           } else  {
             trial = forward_scores_[m - min_width_][i - 1][c2];
           } 
-          if (trial < b) { 
-            b = trial; 
-            back_center = c2;
+          if (!use_sum_) { 
+            if (trial < b) { 
+              b = trial; 
+              back_center = c2;
+            }
+          } else {
+            b_sum = LogAdd(b_sum, trial);
           }
-          //assert(back_center != -1);
         }
       }
       for (int c = 0; c < num_centers_; ++c) {
@@ -177,12 +208,16 @@ void Viterbi::ForwardScores() {
         }
         double switch_score =  w + b + pen;
 
-        if (switch_score < stay_score ) {
-          forward_scores_[m][i][c] = switch_score;
-          back_pointer_[m][i][c] = back_center;
+        if (!use_sum_) {
+          if (switch_score < stay_score ) {
+            forward_scores_[m][i][c] = switch_score;
+            back_pointer_[m][i][c] = back_center;
+          } else {
+            forward_scores_[m][i][c] = stay_score;
+            back_pointer_[m][i][c] = -1;
+          }
         } else {
-          forward_scores_[m][i][c] = stay_score;
-          back_pointer_[m][i][c] = -1;
+          forward_scores_[m][i][c] = LogAdd(switch_score, switch_score);
         }
         // if (forward_scores_[m][i][c] < INF) {
         //   cerr << m << " " << i << " " << c << " " << forward_scores_[m][i][c] << " " << back_pointer_[m][i][c] << " " << w<< endl;
@@ -196,6 +231,7 @@ void Viterbi::BackwardScores() {
   for (int m = num_timesteps_ - 1; m >= 0 ; --m) {
     for (int i = num_states_ - 1; i >= 0 ; --i) {
       double b = INF;
+      double b_sum = 0.0;
       if (i == num_states_ - 1 && m == num_timesteps_ - 1) {
         // Free to transition out of last state.
         b = 0.0;
@@ -205,8 +241,13 @@ void Viterbi::BackwardScores() {
           if (i + 1 != num_states_) {
             pen = lambda_[i + 1][c2];
           }
-          b = min(b, backward_scores_[m + min_width_][i + 1][c2] + pen);
+          if (!use_sum_) {
+            b = min(b, backward_scores_[m + min_width_][i + 1][c2] + pen);
+          } else {
+            b_sum = LogAdd(b, backward_scores_[m + min_width_][i + 1][c2] + pen);
+          }
           backward_scores_[m][i][c2] = INF;
+
         }
       } 
       for (int c = 0; c < num_centers_; ++c) {
@@ -223,19 +264,33 @@ void Viterbi::BackwardScores() {
           cost = INF;
         }
         double switch_score = b + cost;
-        if (stay_score < switch_score) {
-          backward_scores_[m][i][c] = stay_score;
+        if (!use_sum_) {
+          if (stay_score < switch_score) {
+            backward_scores_[m][i][c] = stay_score;
+          } else {
+            backward_scores_[m][i][c] = switch_score;
+          }
         } else {
-          backward_scores_[m][i][c] = switch_score;
+          backward_scores_[m][i][c] = LogAdd(stay_score, switch_score);
         }
       }
     }
   }
-  double best = INF;
-  for (int c2 = 0; c2 < num_centers_; c2++) {
-    best = min(best, backward_scores_[0][0][c2] + lambda(0, c2));
+  
+  double best;
+  if (!use_sum_) {
+    best = INF;
+    for (int c2 = 0; c2 < num_centers_; c2++) {
+      best = min(best, backward_scores_[0][0][c2] + lambda(0, c2));
+    }
+    assert(fabs(best - forward_scores_[num_timesteps_][num_states_][0]) < 1e-4);
+  } else {
+//     best = 0.0;
+//     for (int c2 = 0; c2 < num_centers_; c2++) {
+//       best += backward_scores_[0][0][c2] + lambda(0, c2);
+//     }
   }
-  assert(fabs(best - forward_scores_[num_timesteps_][num_states_][0]) < 1e-4);
+
 }
 
 double Viterbi::score(int time, int center) const {

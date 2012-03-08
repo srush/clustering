@@ -8,7 +8,12 @@ using namespace std;
 class Viterbi {
  public:
  Viterbi(int num_states, int num_timesteps, int num_centers, int min_width): 
-  num_states_(num_states), num_timesteps_(num_timesteps), num_centers_(num_centers) , min_width_(min_width) {}
+  num_states_(num_states), num_timesteps_(num_timesteps), num_centers_(num_centers) , min_width_(min_width), use_sum_(false) {}
+
+
+  void set_use_sum() {
+    use_sum_ = true;
+  }
 
   // Initialize the viterbi chart.
   void Initialize();
@@ -18,8 +23,11 @@ class Viterbi {
   void BackwardScores();
   
   void MinMarginals(vector<vector<double> > *min_marginals);
-
+  void Marginals(vector<vector<vector<double> > > *marginals);
   double GetBestPath(vector<int> *path, vector<int> *centers);
+  double GetBestScore() {
+    return forward_scores_[num_timesteps_][num_states_][0];
+  }
 
   // Score a state ranging from start to end inclusive. 
   double score(int time, int center) const;
@@ -79,6 +87,8 @@ class Viterbi {
   vector< vector<double> > scores_;
   vector< vector<double> > lambda_;
   vector< vector< vector<double> > > state_score_;
+
+  bool use_sum_;
 };
 
 #endif

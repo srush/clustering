@@ -16,6 +16,18 @@ SpeechSolution::SpeechSolution(const SpeechSolution &solution) :
   
 }
 
+void SpeechSolution::FromProtobuf(const speech::SpeechSolution &solution) {
+  for (int p = 0; p < solution.phoneme_multi_centers_size(); ++p) {
+    const speech::MultiCenter &multi = solution.phoneme_multi_centers(p);
+    for (int mode = 0; mode < multi.centers_size(); ++mode) {
+      DataPoint center_point = type_to_special_[mode][p];
+      const speech::Vector &vector = multi.centers(mode);
+      DataPoint *point = DataPointFromProtobuf(vector);
+      type_to_special_[mode][p] = *point;
+    }
+  }
+}
+
 
 void SpeechSolution::ToProtobuf(speech::SpeechSolution &solution, 
                                 const SpeechProblemSet &speech_problem) const {

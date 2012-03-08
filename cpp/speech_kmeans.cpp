@@ -12,11 +12,14 @@ SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set):
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
     distances_[u] = problems_.MakeDistances(u);
   }
+  use_gmm_ = false;
+  use_medians_ = false;
 }
 
 double SpeechKMeans::Run(int rounds) {
   vector<vector<vector<DataPoint> > > phoneme_states(num_types_);
-
+  vector<vector<DataPoint> > center_estimators_(num_types_);  
+  vector<vector<double> > center_counts_(num_types_);  
   double round_score = 0.0;
   for (int round = 0; round < rounds; ++round) {
     round_score = 0.0;
@@ -25,10 +28,18 @@ double SpeechKMeans::Run(int rounds) {
          utterance_index < problems_.utterance_size(); 
          ++utterance_index) {
       int correctness; 
-      round_score += Expectation(utterance_index, &correctness, &phoneme_states);
-      total_correctness += correctness;
+      if (!use_gmm_) {
+        round_score += Expectation(utterance_index, &correctness, &phoneme_states);
+        total_correctness += correctness;
+      } else {
+        round_score += GMMExpectation(utterance_index, center_estimators_, center_counts_);
+      }
     }
-    Maximization(phoneme_states);
+    if (!use_gmm_) {
+      Maximization(phoneme_states);
+    } else {
+      GMMMaximization(center_estimators_, center_counts_);
+    }
     cerr << "Round score: " << round << " " <<  round_score << " " << total_correctness << endl;
   }
   return round_score;
@@ -152,6 +163,69 @@ double SpeechKMeans::Expectation(int utterance_index,
   assert(path_[u].size() - 1 == (uint)cluster_problem.num_states);
   cerr << endl;
   return score;
+}
+
+
+double SpeechKMeans::GMMExpectation(int utterance_index,
+                                    vector<vector<DataPoint> > &estimators, 
+                                    vector<vector<double> > &counts) {
+  const ClusterProblem &cluster_problem = 
+    cluster_problems_.problem(utterance_index);
+  const Utterance &utterance = problems_.utterance(utterance_index);
+
+  // Duplicate each state for every mode.
+  Viterbi viterbi(cluster_problem.num_states,
+                  cluster_problem.num_steps, cluster_problems_.num_modes(), 3);
+  viterbi.Initialize();
+
+
+   // Set the weights based on the current centers.
+  clock_t start = clock();
+
+  for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
+    for (int i = 0; i < cluster_problem.num_states; ++i) {
+      const DataPoint &center = centers_[mode][cluster_problem.MapState(i)];
+      for (int s = 0; s < cluster_problem.num_steps; ++s) {
+        double score = dist(center,
+                            utterance.sequence(s));
+        viterbi.set_state_score(s, i, mode, score);
+      }
+    }
+  }
+  cerr << "score setting " << clock() - start << endl;  
+  
+  // Run semimarkov algorithm.
+  //vector<int> path;
+  viterbi.set_use_sum();
+  viterbi.ForwardScores();
+  double score = viterbi.GetBestScore();
+  viterbi.BackwardScores();
+  vector<vector<vector<double> > > marginals;
+  viterbi.Marginals(&marginals);
+  for (int s = 0; s < cluster_problem.num_steps; ++s) {
+    for (int i = 0; i < cluster_problem.num_states; ++i) {
+      int type = cluster_problem.MapState(i);
+      for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
+        double p = marginals[s][i][mode];
+        estimators[mode][type] += p * utterance.sequence(s);
+        counts[mode][type] += p;
+      }
+    }
+  }
+  return score;
+}
+
+
+void SpeechKMeans::GMMMaximization(const vector<vector<DataPoint> > &estimators, 
+                                   const vector<vector<double> > &counts) {  
+  centers_.clear();
+  int num_modes = cluster_problems_.num_modes();
+  centers_.resize(num_modes);
+  for (int mode = 0; mode < num_modes; ++mode) {
+    for (int type = 0; type < cluster_problems_.num_types(); ++type) {
+      centers_[mode].push_back(estimators[mode][type] / counts[mode][type]);
+    }
+  }
 }
 
 void SpeechKMeans::Maximization(const vector<vector<vector<DataPoint> > > &sets) {

@@ -48,8 +48,8 @@ double SpeechKMeans::Run(int rounds) {
         round_score += Expectation(utterance_index, &correctness, &phoneme_states);
         total_correctness += correctness;
       } else {
-        round_score += GMMExpectation(utterance_index, center_estimators, center_counts);
-        Expectation(utterance_index, &correctness, &phoneme_states);
+        GMMExpectation(utterance_index, center_estimators, center_counts);
+        round_score += Expectation(utterance_index, &correctness, &phoneme_states);
         total_correctness += correctness;
       }
     }
@@ -193,7 +193,7 @@ double SpeechKMeans::GMMExpectation(int utterance_index,
 
   // Duplicate each state for every mode.
   Viterbi viterbi(cluster_problem.num_states,
-                  cluster_problem.num_steps, cluster_problems_.num_modes(), 3);
+                  cluster_problem.num_steps, cluster_problems_.num_modes(), 1);
   viterbi.Initialize();
 
 
@@ -225,10 +225,13 @@ double SpeechKMeans::GMMExpectation(int utterance_index,
       int type = cluster_problem.MapState(i);
       for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
         double p = marginals[s][i][mode];
-        assert(p <= 1.0);
+        //cerr << p << endl;
+        assert(p <= 1.0 + 1e-4);
         assert(p >= 0.0);
-        estimators[mode][type] += p * utterance.sequence(s);
-        counts[mode][type] += p;
+        if (p > 1e-4) {
+          estimators[mode][type] += p * utterance.sequence(s);
+          counts[mode][type] += p;
+        }
       }
     }
   }

@@ -7,7 +7,7 @@ env = Environment()
 
 
 env.Append(CXX=["g++-4.1"], 
-           CPPFLAGS=['-Werror','-Wall','-O2', '-DNDEBUG', '-g'])
+           CPPFLAGS=['-Werror','-Wall','-O2', '-g'])
 
 #env['BUILDERS']['Protoc'] = Builder(action = ProtocBuilder)
 generate(env)

@@ -30,6 +30,9 @@ double SpeechKMeans::Run(int rounds) {
         center_counts[mode].resize(num_types_);
         for (int type = 0; type < num_types_; ++type) {
           center_estimators[mode][type].resize(problems_.num_features(), 0.0);
+          for (int feat = 0; feat < problems_.num_features(); ++feat) {
+            center_estimators[mode][type][feat] = 0.0;
+          }
           center_counts[mode][type] = 0.0;
         }
       }
@@ -45,9 +48,9 @@ double SpeechKMeans::Run(int rounds) {
         round_score += Expectation(utterance_index, &correctness, &phoneme_states);
         total_correctness += correctness;
       } else {
-        GMMExpectation(utterance_index, center_estimators, center_counts);
-        round_score += Expectation(utterance_index, &correctness, &phoneme_states);
-        total_correctness += correctness;
+        round_score += GMMExpectation(utterance_index, center_estimators, center_counts);
+//         Expectation(utterance_index, &correctness, &phoneme_states);
+//         total_correctness += correctness;
       }
     }
     if (!use_gmm_) {

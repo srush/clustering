@@ -18,10 +18,23 @@ SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set):
 
 double SpeechKMeans::Run(int rounds) {
   vector<vector<vector<DataPoint> > > phoneme_states(num_types_);
-  vector<vector<DataPoint> > center_estimators_(num_types_);  
-  vector<vector<double> > center_counts_(num_types_);  
+  int num_modes = cluster_problems_.num_modes();
+  vector<vector<DataPoint> > center_estimators(num_modes);  
+  vector<vector<double> > center_counts(num_modes);  
+
   double round_score = 0.0;
   for (int round = 0; round < rounds; ++round) {
+    if (use_gmm_) {
+      for (int mode = 0; mode < num_modes; ++mode) {
+        center_estimators[mode].resize(num_types_);
+        center_counts[mode].resize(num_types_);
+        for (int type = 0; type < num_types_; ++type) {
+          center_estimators[mode][type].resize(problems_.num_features(), 0.0);
+          center_counts[mode][type] = 0.0;
+        }
+      }
+    }
+
     round_score = 0.0;
     int total_correctness = 0;
     for (int utterance_index = 0; 
@@ -32,13 +45,15 @@ double SpeechKMeans::Run(int rounds) {
         round_score += Expectation(utterance_index, &correctness, &phoneme_states);
         total_correctness += correctness;
       } else {
-        round_score += GMMExpectation(utterance_index, center_estimators_, center_counts_);
+        GMMExpectation(utterance_index, center_estimators, center_counts);
+        round_score += Expectation(utterance_index, &correctness, &phoneme_states);
+        total_correctness += correctness;
       }
     }
     if (!use_gmm_) {
       Maximization(phoneme_states);
     } else {
-      GMMMaximization(center_estimators_, center_counts_);
+      GMMMaximization(center_estimators, center_counts);
     }
     cerr << "Round score: " << round << " " <<  round_score << " " << total_correctness << endl;
   }
@@ -207,6 +222,8 @@ double SpeechKMeans::GMMExpectation(int utterance_index,
       int type = cluster_problem.MapState(i);
       for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
         double p = marginals[s][i][mode];
+        assert(p <= 1.0);
+        assert(p >= 0.0);
         estimators[mode][type] += p * utterance.sequence(s);
         counts[mode][type] += p;
       }

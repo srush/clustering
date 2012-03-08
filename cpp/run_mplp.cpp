@@ -27,7 +27,7 @@ static const bool port_dummy =
 
 int main(int argc, char **argv) {
   ParseCommandLineFlags(&argc, &argv, true);
-
+  
 
   SpeechProblemSet *speech_problems = 
     SpeechProblemSet::ReadFromFile("problems/"+FLAGS_problem_name+"_pho", 
@@ -61,8 +61,8 @@ int main(int argc, char **argv) {
     //kmeans.set_use_medians(true);
 
     for (int i = 0; i < 100; ++i) {
-      kmeans.Run(10);
       kmeans.set_use_gmm();
+      kmeans.Run(50);
       
       stringstream buf;
       if (FLAGS_starting_model == "") {

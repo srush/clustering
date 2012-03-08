@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "semimarkov.h"
 #include <time.h>
+#include <cmath>
 #define DEBUG 0
 
 void SemiMarkov::Initialize() {

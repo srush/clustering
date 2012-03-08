@@ -17,8 +17,7 @@ double LogAdd(double a, double b) {
   } else if (a > 1e7) {
     return b;
   } else {
-    double c = max(a, b) + log1p(exp( -fabs(a - b) ));
-    //cerr << a << " " << b << " " << c << endl;
+    double c = -max(-a, -b) + log1p(exp( -fabs(a - b) ));
     return c;
   }
 }
@@ -125,9 +124,9 @@ void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
           //   (*marginals)[m][state][c] =  1.0;
           // }  else {
             (*marginals)[m][state][c] =  
-              exp((forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) - normalization);
-            assert(forward_scores_[m][state][c] +  backward_scores_[m + 1][state][c]- 1e-4
-                   <= forward_scores_[num_timesteps_][num_states_][0]);
+              exp(-((forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) - normalization));
+            // assert(forward_scores_[m][state][c] +  backward_scores_[m + 1][state][c]+ 1e-4
+            //        >= forward_scores_[num_timesteps_][num_states_][0]);
           
             //        }
             // cerr << normalization << " " << forward_scores_[m][state][c] + 
@@ -143,7 +142,7 @@ void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
           (*marginals)[m][state][c] += 0.0;
         } else {
             (*marginals)[m][state][c] +=  
-              exp((forward_scores_[m][state][c] + best_back[m + 1][state+1]) - normalization);
+              exp(-((forward_scores_[m][state][c] + best_back[m + 1][state+1]) - normalization));
         }
       }
     }
@@ -359,8 +358,8 @@ void Viterbi::BackwardScores() {
           //   forward_scores_[m][i][c] << " " << 
           //   w<< endl;
         
-          assert(forward_scores_[m][i][c] +  backward_scores_[m + 1][i][c] -1e-4 
-                 <= forward_scores_[num_timesteps_][num_states_][0]);
+          // assert(forward_scores_[m][i][c] +  backward_scores_[m + 1][i][c] + 5
+          //        >= forward_scores_[num_timesteps_][num_states_][0]);
         }
           //}
       }

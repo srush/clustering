@@ -79,6 +79,23 @@ void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
   }
   double normalization = 
     forward_scores_[num_timesteps_][num_states_][0];
+
+  vector< vector<double> > best_back(num_timesteps_ + 1);
+  for (int m = 0; m <= num_timesteps_; ++m) {
+    best_back[m].resize(num_states_ + 1, INF);
+    for (int i = 0; i <= num_states_; ++i) {
+      if (i > m) continue;
+      for (int c = 0; c < num_centers_; ++c) {
+        double pen = 0.0;
+        if (m < num_timesteps_ && i < num_states_) {
+          pen = lambda(i, c);
+        }
+        double trial = backward_scores_[m][i][c] + pen;
+        best_back[m][i] = LogAdd(best_back[m][i], trial); 
+      }
+    }
+  }
+
   for (int m = 0; m < num_timesteps_; ++m) {
     for (int state = 0; state < num_states_; ++state) {
       for (int c = 0; c < num_centers_; ++c) {
@@ -86,13 +103,29 @@ void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
             backward_scores_[m + 1][state][c] > 1e7) {
           (*marginals)[m][state][c] = 0.0;
         } else {
-          if (normalization > (forward_scores_[m][state][c] + backward_scores_[m + 1][state][c])) {
+          if (normalization > (forward_scores_[m][state][c] + 
+                               backward_scores_[m + 1][state][c])) {
             (*marginals)[m][state][c] =  1.0;
           }  else {
             (*marginals)[m][state][c] =  
-              exp(-((forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) - normalization));
+              exp(-((forward_scores_[m][state][c] + 
+                     backward_scores_[m + 1][state][c]) - normalization));
           }
           //assert(normalization <= (forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) );
+        }
+
+        if (forward_scores_[m][state][c] > 1e7 || 
+            best_back[m + 1][state + 1] > 1e7) {
+          (*marginals)[m][state][c] += 0.0;
+        } else {
+          if (normalization > (forward_scores_[m][state][c] + 
+                               best_back[m + 1][state + 1])) {
+            (*marginals)[m][state][c] =  1.0;
+          }  else {
+            (*marginals)[m][state][c] +=  
+              exp(-((forward_scores_[m][state][c] + 
+                     best_back[m + 1][state + 1]) - normalization));
+          }
         }
       }
     }

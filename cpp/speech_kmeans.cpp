@@ -48,9 +48,9 @@ double SpeechKMeans::Run(int rounds) {
         round_score += Expectation(utterance_index, &correctness, &phoneme_states);
         total_correctness += correctness;
       } else {
-        round_score += GMMExpectation(utterance_index, center_estimators, center_counts);
-//         Expectation(utterance_index, &correctness, &phoneme_states);
-//         total_correctness += correctness;
+        GMMExpectation(utterance_index, center_estimators, center_counts);
+        round_score += Expectation(utterance_index, &correctness, &phoneme_states);
+        total_correctness += correctness;
       }
     }
     if (!use_gmm_) {

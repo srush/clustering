@@ -68,11 +68,11 @@ int main(int argc, char **argv) {
       speech_subgrad->MPLPRound(i);
       cerr << "Round: " << i << endl;
 
-      if (i % 10 == 0) {
+      if (i % 10 == 5) {
         cerr << "KMEANS" << endl;
         kmeans.SetCenters(speech_subgrad->centers());
         kmeans.set_use_medians(true);
-        kmeans.Run(10);
+        kmeans.Run(2);
         
         // write out kmeans solution
         stringstream buf;

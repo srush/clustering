@@ -61,8 +61,6 @@ int main(int argc, char **argv) {
     //kmeans.set_use_medians(true);
 
     for (int i = 0; i < 100; ++i) {
-      kmeans.set_use_gmm();
-
       //kmeans.set_use_gmm();
       kmeans.Run(10);
       

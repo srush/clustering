@@ -123,6 +123,23 @@ void SpeechProblemSet::AlignmentClusterSet(int problem,
   assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
 }
 
+void SpeechProblemSet::AlignmentClusterSetUnsup(int problem,
+                                                const vector<int> &alignment,  
+                                                const vector<int> &centers,  
+                                                vector<vector<vector<DataPoint> > > *cluster_sets) const {
+  const ClusterProblem &cluster_problem = cluster_set_->problem(problem);
+  for (uint i = 0; i < alignment.size() - 1; ++i) {
+    int start = alignment[i];
+    int end = alignment[i + 1];
+    int type = centers[i];
+    int mode = 0;
+    for (int j = start; j < end; ++j) {
+      (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j));
+    }
+  }
+  assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
+}
+
 void SpeechProblemSet::AlignmentGroupClusterSet(int problem,
                                                 const vector<int> &alignment,  
                                                 vector<vector<vector<DataPoint> > > *cluster_sets) const {

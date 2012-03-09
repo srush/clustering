@@ -20,6 +20,7 @@ class SpeechKMeans {
   // Set the centers to start EM.
   void SetCenters(const vector<vector<DataPoint> > &centers);
   
+
   void set_use_medians(bool use_medians) {
     use_medians_ = use_medians;
   }
@@ -28,11 +29,17 @@ class SpeechKMeans {
     use_gmm_ = true;
   }
 
+  void set_use_unsup() {
+    use_unsupervised_ = true;
+  }
+
   const vector<vector<DataPoint> > &centers() { return centers_; } 
 
   SpeechSolution *MakeSolution();
 
  private:
+  vector<DataPoint> WeightedKMeans(vector<DataPoint> &points, 
+                                   vector<double> &weights, int k);
 
   // EM.
   double Expectation(int utterance_index,
@@ -47,7 +54,18 @@ class SpeechKMeans {
   double GMMExpectation(int utterance_index,
                         vector<vector<DataPoint> > &estimators, 
                         vector<vector<double> > &counts);
+  void ClusterSegmentsExpectation(int utterance_index,
+                                  vector<DataPoint> *points,
+                                  vector<double> *weights);
 
+  void ClusterSegmentsMaximization(vector<DataPoint> *points,
+                                   vector<double> *weights);
+
+  double UnsupExpectation(int utterance_index,
+                          int *correctness,
+                          vector<vector<vector<DataPoint> > > *sets);
+
+  void UnsupMaximization(const vector<vector<vector<DataPoint> > > &sets);
   
   // The information of the underlying speech problem
   const SpeechProblemSet &problems_;
@@ -66,6 +84,9 @@ class SpeechKMeans {
   bool use_medians_;
 
   bool use_gmm_;
+
+  bool use_unsupervised_;
+
 
   vector<ThinDistanceHolder *> distances_;
 

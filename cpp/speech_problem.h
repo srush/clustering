@@ -71,6 +71,11 @@ class SpeechProblemSet {
                            const vector<int> &centers, 
                            vector<vector<vector<DataPoint> > > *cluster_sets) const;
 
+  void AlignmentClusterSetUnsup(int problem,
+                                const vector<int> &alignment, 
+                                const vector<int> &centers, 
+                                vector<vector<vector<DataPoint> > > *cluster_sets) const;
+
   // Convert an alignment to a set of groups of points in each phoneme cluster.
   void AlignmentGroupClusterSet(int problem,
                                 const vector<int> &alignment, 

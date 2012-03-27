@@ -12,6 +12,7 @@ import numpy.linalg
 #import mdp
 print "start"
 
+unsupervised = True
 def dist(vec1, vec2):
   return pow(numpy.linalg.norm(vec1 - vec2), 2)
 
@@ -167,14 +168,27 @@ class SpeechSolution:
         selected_center = 0
         if alignment.selected_centers:
           selected_center = alignment.selected_centers[i]
-        center = phoneme_centers[phone][selected_center]
+        if unsupervised:
+          center = phoneme_centers[selected_center][0]
+        else:
+          center = phoneme_centers[phone][selected_center]
 
+        gold_start = utterance.correct_division[i]
         proposed_start = alignment.proposed_segmentation[i]
         proposed_end = alignment.proposed_segmentation[i + 1]
+        if unsupervised:
+          states = [(abs(gold_start - alignment.proposed_segmentation[x]), x) for x,_ in enumerate(utterance.phones)]
+          
+          (distance, new_aligned_state) = min(states)
+          proposed_start = alignment.proposed_segmentation[new_aligned_state]
+          proposed_end = alignment.proposed_segmentation[new_aligned_state + 1]
+
         for s in range(proposed_start, proposed_end):
           distance += dist(sequence_vectors[s], center)
-
-        phonemes[phone].AddInstance(selected_center, abs(proposed_end - proposed_start), distance)
+        if unsupervised:
+          phonemes[phone].AddInstance(0, abs(proposed_end - proposed_start), distance)
+        else:
+          phonemes[phone].AddInstance(selected_center, abs(proposed_end - proposed_start), distance)
         gold_start = utterance.correct_division[i]
         gold_end = utterance.correct_division[i +1]
         gold_center = self.gold_centers[phone]
@@ -245,7 +259,7 @@ class SpeechSolution:
     total = 0.0
     for k in hist:
       total += hist[k]
-      if k <= 4:
+      if k <= 20:
         print k, total / float(hist_sum)
       
 

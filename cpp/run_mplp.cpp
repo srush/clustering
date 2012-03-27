@@ -62,7 +62,12 @@ int main(int argc, char **argv) {
 
     for (int i = 0; i < 100; ++i) {
       //kmeans.set_use_gmm();
-      kmeans.Run(10);
+      kmeans.set_use_unsup();
+      if (i == 0) {
+        kmeans.Run(1);
+      } else {
+        kmeans.Run(10);
+      }
       
       stringstream buf;
       if (FLAGS_starting_model == "") {

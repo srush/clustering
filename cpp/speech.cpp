@@ -18,6 +18,8 @@ PhonemeSet *PhonemeSet::FromProtobuf(const speech::PhonemeSet &phoneme_set_buf) 
   for (int i = 0; i < phoneme_set_buf.phonemes_size(); ++i) {
     PhonemeType *type = PhonemeType::FromProtobuf(phoneme_set_buf.phonemes(i));
     phoneme_set->phonemes_.push_back(type);
+    phoneme_set->phonemes_.push_back(type);
+    phoneme_set->phonemes_.push_back(type);
   }
   return phoneme_set;
 }

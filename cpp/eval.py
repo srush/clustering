@@ -1,6 +1,4 @@
 import sys
-print "start"
-#from nltk.corpus import timit
 sys.path.append(".")
 sys.path.append("sequence")
 sys.path.append("build")
@@ -8,9 +6,6 @@ import speech_pb2 as speech
 import math
 import numpy as np
 import numpy.linalg
-#import matplotlib.pyplot as plt
-#import mdp
-print "start"
 
 def dist(vec1, vec2):
   return pow(numpy.linalg.norm(vec1 - vec2), 2)

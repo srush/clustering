@@ -1,19 +1,30 @@
 import sys
-from nltk.corpus.reader import timit
-import nltk.data 
 sys.path.append(".")
 sys.path.append("sequence")
 sys.path.append("build")
+from nltk.corpus.reader import timit
+import nltk.data 
 from yaafelib import *
 import speech_pb2 as speech
 import math
 import numpy as np
 import scipy.cluster.vq as vq
-from hcluster import linkage, to_tree
 import numpy.linalg
-timit = timit.TimitCorpusReader(nltk.data.FileSystemPathPointer("/home/alexanderrush/Projects/clustering/corpus/TIMITNLTK"))
-#print timit.utterances()
+import gflags
+FLAGS = gflags.FLAGS
+
+gflags.DEFINE_string('corpus_path', "/home/alexanderrush/Projects/clustering/corpus/TIMITNLTK", 'Path to TIMIT-like corpus')
+gflags.DEFINE_string('output_name', "", 'Output name of this speech problem.')
+gflags.MarkFlagAsRequired('output_name')
+
+def 
+
+
 problem_name = sys.argv[1]
+
+timit = timit.TimitCorpusReader(nltk.data.FileSystemPathPointer(CORPUS_PATH))
+#print timit.utterances()
+
 
 fp = FeaturePlan(sample_rate=16000)
 fp.addFeature('mfcc: MFCC blockSize=160 stepSize=80')

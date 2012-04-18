@@ -2,6 +2,7 @@ package speech;
 
 message Phoneme {
     required int32 id = 1;
+
     required string name = 2;
 }
 
@@ -23,10 +24,16 @@ message Utterance {
     // The number of dimensions of the feature vectors.
     required int32 feature_dimensions = 3;
 
+    // The corresponding times in the original speech sequence.
+    repeated int32 original_time = 6;
+
     // The sentence in human readable form.
     optional string sentence = 4;
 
-    // The correct divides of the phones.
+    // The original TIMIT name of the sentence file.
+    optional string sentence_file = 7;
+
+    // The correct segmentation of the phones.
     repeated int32 correct_division = 5; 
 }
 
@@ -58,7 +65,7 @@ message MultiCenter {
 }
 
 message SpeechSolution {
-    // 
+    // Alignments for each of the utterances.
     repeated UtteranceAlignment alignments = 1;
 
     // The centers chosen for each of the alignments.

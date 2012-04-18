@@ -9,9 +9,18 @@
 using namespace google;
 
 DEFINE_string(problem_name, "", "The name of the problem to run.");
+
 DEFINE_string(algorithm, "lp", "The algorithm to run.");
+
 DEFINE_string(name, "", "The name of the output.");
+
 DEFINE_string(starting_model, "", "The name of a starting model.");
+
+DEFINE_bool(pc_use_medians, false, "Restrict primal coordinate descent to use medians.");
+
+DEFINE_bool(pc_use_gmm, false, "Run primal coordinate descent with GMMs.");
+
+DEFINE_bool(pc_unsupervised, false, "Run primal coordinate descent unsupervised (no phonemes).");
 
 
 static bool ValidateSet(const char *flagname, const string &value) {
@@ -28,12 +37,12 @@ static const bool port_dummy =
 int main(int argc, char **argv) {
   ParseCommandLineFlags(&argc, &argv, true);
   
-
   SpeechProblemSet *speech_problems = 
     SpeechProblemSet::ReadFromFile("problems/"+FLAGS_problem_name+"_pho", 
                                    "problems/"+FLAGS_problem_name+"_utt", 
                                    "problems/"+FLAGS_problem_name+"_cent"); 
   const ClusterSet &cluster_problems = speech_problems->MakeClusterSet();
+  
   // Primal coordinate descent.
   if (FLAGS_algorithm == "pc") {
     SpeechKMeans kmeans(*speech_problems);
@@ -58,11 +67,14 @@ int main(int argc, char **argv) {
       kmeans.InitializeCenters();
     }
 
-    //kmeans.set_use_medians(true);
-
+    kmeans.set_use_medians(FLAGS_pc_use_medians);
     for (int i = 0; i < 100; ++i) {
-      //kmeans.set_use_gmm();
-      kmeans.set_use_unsup();
+      if (FLAGS_pc_use_gmm) { 
+        kmeans.set_use_gmm();
+      }
+      if (FLAGS_pc_unsupervised) { 
+        kmeans.set_use_unsup();
+      }
       kmeans.Run(10);
       
       stringstream buf;
@@ -81,16 +93,7 @@ int main(int argc, char **argv) {
       sol.SerializeToOstream(&output);
       output.close();
     }
-  }
-
-  // const vector<DataPoint> &medians = kmeans.centers();
-  // speech_problems->set_pruning(medians);
-
-
-  else if (FLAGS_algorithm == "lp") {
-    // AlignmentLP lp(*speech_problems);
-    // lp.ConstructLP();
-  } else if (FLAGS_algorithm == "lrv") {
+  } else if (FLAGS_algorithm == "lr") {
     SpeechSubgradient *speech_subgrad = new SpeechSubgradient(*speech_problems);
     SpeechKMeans kmeans(*speech_problems);
     for (uint i = 0; i < 5000; ++i) {
@@ -103,7 +106,7 @@ int main(int argc, char **argv) {
         kmeans.set_use_medians(true);
         kmeans.Run(2);
         
-        // write out kmeans solution
+        // Write out kmeans solution
         stringstream buf;
         buf << "results/" << FLAGS_problem_name << "_lr_solution_" << FLAGS_name << " " << i;
         fstream output(buf.str().c_str(), ios::out | ios::binary);
@@ -113,7 +116,6 @@ int main(int argc, char **argv) {
         sol.SerializeToOstream(&output);
         output.close();
       }
-
     }
   }
 };

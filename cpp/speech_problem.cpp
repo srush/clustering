@@ -127,7 +127,7 @@ void SpeechProblemSet::AlignmentClusterSetUnsup(int problem,
                                                 const vector<int> &alignment,  
                                                 const vector<int> &centers,  
                                                 vector<vector<vector<DataPoint> > > *cluster_sets) const {
-  const ClusterProblem &cluster_problem = cluster_set_->problem(problem);
+  //const ClusterProblem &cluster_problem = cluster_set_->problem(problem);
   for (uint i = 0; i < alignment.size() - 1; ++i) {
     int start = alignment[i];
     int end = alignment[i + 1];

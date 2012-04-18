@@ -14,10 +14,11 @@ import gflags
 FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string('corpus_path', "/home/alexanderrush/Projects/clustering/corpus/TIMITNLTK", 'Path to TIMIT-like corpus')
+
 gflags.DEFINE_string('output_name', "", 'Output name of this speech problem.')
+
 gflags.MarkFlagAsRequired('output_name')
 
-def 
 
 
 problem_name = sys.argv[1]

@@ -65,7 +65,7 @@ TESTOBJECTS = $(TESTSOURCES:.cpp=.o)
 #				temporary command terminal in which to run
 #				the program.)
 #-----------------------------------------------------------------------------
-C++ = g++-4.1
+C++ = g++
 #CFLAGS = -O3 
 #CFLAGS = -g -Wall -DASSERT -traditional
 CFLAGS = -O3 -Wall -DASSERT

@@ -22,7 +22,6 @@ DEFINE_bool(pc_use_gmm, false, "Run primal coordinate descent with GMMs.");
 
 DEFINE_bool(pc_unsupervised, false, "Run primal coordinate descent unsupervised (no phonemes).");
 
-
 static bool ValidateSet(const char *flagname, const string &value) {
   if (value != "") {
     return true;
@@ -69,6 +68,7 @@ int main(int argc, char **argv) {
 
     kmeans.set_use_medians(FLAGS_pc_use_medians);
     for (int i = 0; i < 100; ++i) {
+
       if (FLAGS_pc_use_gmm) { 
         kmeans.set_use_gmm();
       }

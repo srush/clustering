@@ -22,7 +22,6 @@ gflags.MarkFlagAsRequired('output_name')
 def load_timit(path):
   return timit.TimitCorpusReader(nltk.data.FileSystemPathPointer(path))
 
-
 class FeatureExtractor:
   def __init__(self):
     fp = FeaturePlan(sample_rate=16000)
@@ -155,7 +154,9 @@ class SpeechProblem:
 
 def load_brugnara_files(timit):
   brugnara = set([l.strip() for l in open("corpus")])
-  return [f for f in timit.utterances() if f.split("-")[1].split("/")[0] in brugnara and "sa1" not in f and "sa2" not in f]
+  return [f for f in timit.utterances() 
+          if f.split("-")[1].split("/")[0] in brugnara 
+          and "sa1" not in f and "sa2" not in f]
 
 def main(argv):
   argv = FLAGS(argv) 

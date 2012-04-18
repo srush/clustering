@@ -2,11 +2,13 @@ import os
 from protoc import *
 env = Environment()
 
-# env.Append(CXX=["g++-4.1"], 
+
+# env.Append(#CXX=["g++-4.1"], 
 #            CPPFLAGS=['-Werror','-Wall','-g', '-fstack-protector-all'])
 
 env.Append(LIBPATH =('.', "kmlocal-1.7.2/src/", "/home/alexanderrush/libs/gurobi452/linux64/lib", "/afs/csail.mit.edu/u/s/srush/h/gurobi452/linux64/lib/"))
 env.Append(CPPPATH =('.', "/home/alexanderrush/libs/gurobi452/linux64/include", "/afs/csail.mit.edu/u/s/srush/h/gurobi452/linux64/include/"))
+
 
 env.Append(CXX=["g++-4.1"], 
            CPPFLAGS=['-Werror','-Wall','-O2', '-g', '-DNDEBUG'])

@@ -3,10 +3,13 @@
 #include "viterbi.h"
 #include "kmlocal-1.7.2/src/KMlocal.h"
 
+#define CENTERS_RATIO 1
+
 SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set): 
   problems_(problem_set), cluster_problems_(problem_set.MakeClusterSet()),
   path_(cluster_problems_.problems_size()),
-  mode_centers_(cluster_problems_.problems_size()) {
+  mode_centers_(cluster_problems_.problems_size()),
+  type_centers_(cluster_problems_.problems_size()) {
   num_types_ = cluster_problems_.num_types();
   num_features_ = problem_set.num_features();
   distances_.resize(cluster_problems_.problems_size());
@@ -15,6 +18,8 @@ SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set):
   }
   use_gmm_ = false;
   use_medians_ = false;
+  use_unsupervised_ = false;
+  unsup_initialized_ = false;
 }
 
 double SpeechKMeans::Run(int rounds) {
@@ -23,7 +28,7 @@ double SpeechKMeans::Run(int rounds) {
   vector<vector<DataPoint> > center_estimators(num_modes);  
   vector<vector<double> > center_counts(num_modes);  
 
-  if (use_unsupervised_) {
+  if (use_unsupervised_ && !unsup_initialized_) {
     vector<double> weights;
     vector<DataPoint> points;
     for (int utterance_index = 0; 
@@ -32,6 +37,7 @@ double SpeechKMeans::Run(int rounds) {
       ClusterSegmentsExpectation(utterance_index, &points, &weights); 
     }
     ClusterSegmentsMaximization(&points, &weights);
+    unsup_initialized_ = true;
   }
 
   double round_score = 0.0;
@@ -201,7 +207,7 @@ void SpeechKMeans::ClusterSegmentsMaximization(vector<DataPoint> *points,
   vector<vector<DataPoint> > types(1);
   types[0] = 
     WeightedKMeans(*points, *weights, 
-                   min(cluster_problems_.num_types(), (int)points->size()));
+                   min(cluster_problems_.num_types() / CENTERS_RATIO, (int)points->size()));
   types[0].resize(cluster_problems_.num_types());
   int dim = problems_.num_features(); // dimension
   for (int extra = points->size(); extra < cluster_problems_.num_types(); ++extra) {
@@ -234,10 +240,10 @@ vector<DataPoint> SpeechKMeans::WeightedKMeans(vector<DataPoint> &points,
   dataPts.buildKcTree(); // build filtering structure
   KMfilterCenters ctrs(k, dataPts); // allocate centers
   // run the algorithm
-  KMlocalLloyds kmAlg(ctrs, term); // repeated Lloyd's
+  //KMlocalLloyds kmAlg(ctrs, term); // repeated Lloyd's
   // KMlocalSwap kmAlg(ctrs, term); // Swap heuristic
   // KMlocalEZ_Hybrid kmAlg(ctrs, term); // EZ-Hybrid heuristic
-  // KMlocalHybrid kmAlg(ctrs, term); // Hybrid heuristic
+  KMlocalHybrid kmAlg(ctrs, term); // Hybrid heuristic
   ctrs = kmAlg.execute(); // execute
   // print number of stages
   cout << "Number of stages: " << kmAlg.getTotalStages() << "\n";
@@ -291,9 +297,8 @@ double SpeechKMeans::UnsupExpectation(int utterance_index,
   cerr << "score setting " << clock() - start << endl;  
   
   // Run semimarkov algorithm.
-  vector<int> type_centers;
   viterbi.ForwardScores();
-  double score = viterbi.GetBestPath(&path_[u], &type_centers);
+  double score = viterbi.GetBestPath(&path_[u], &type_centers_[u]);
   (*correctness) = utterance.ScoreAlignment(path_[u]);
   cerr << "Correctness: " << *correctness << endl; 
 
@@ -303,7 +308,7 @@ double SpeechKMeans::UnsupExpectation(int utterance_index,
     (*sets)[mode].resize(num_types_);
   }
   problems_.AlignmentClusterSetUnsup(utterance_index, path_[u], 
-                                     type_centers, sets);
+                                     type_centers_[u], sets);
 
   // collapse to modes. 
   cerr << endl;
@@ -473,14 +478,25 @@ void SpeechKMeans::UnsupMaximization(const vector<vector<vector<DataPoint> > > &
   int num_modes = cluster_problems_.num_modes();
   centers_.resize(num_modes);
 
+  int dim = problems_.num_features(); // dimension
+  DataPoint zero(dim);
+  for (int i = 0; i < dim; ++i) {
+    zero[i] = 0.0;
+  }
+
   for (int mode = 0; mode < num_modes; ++mode) {
-    for (int p = 0; p < num_types_; ++p) {
-      DataPoint total(num_features_);
-      for (uint i = 0; i < sets[mode][p].size(); ++i) {
-        total += sets[mode][p][i];
+    for (int p = 0; p < num_types_ ; ++p) {
+      if (p < num_types_ / CENTERS_RATIO) {
+        DataPoint total(num_features_);
+        
+        for (uint i = 0; i < sets[mode][p].size(); ++i) {
+          total += sets[mode][p][i];
+        }
+        total = total / float(sets[mode][p].size());
+        centers_[mode].push_back(total);
+      } else {
+        centers_[mode].push_back(zero);
       }
-      total = total / float(sets[mode][p].size());
-      centers_[mode].push_back(total);
     }
   }
 }
@@ -520,11 +536,20 @@ SpeechSolution *SpeechKMeans::MakeSolution() {
     vector<int> *modes = align->mutable_mode_align();
     modes->resize(problem.num_states + 1);
     solution->resize(problem.num_states + 1);
-    for (int i = 0; i < problem.num_states + 1; ++i) {
-      (*solution)[i] = path_[u][i];
-      if (i < problem.num_states) {
-        (*modes)[i] = mode_centers_[u][i];
+    if (!use_unsupervised_) {
+      for (int i = 0; i < problem.num_states + 1; ++i) {
+        (*solution)[i] = path_[u][i];
+        if (i < problem.num_states) {
+          (*modes)[i] = mode_centers_[u][i];
+        } 
       }
+    } else {
+      for (int i = 0; i < problem.num_states + 1; ++i) {
+        (*solution)[i] = path_[u][i];
+        if (i < problem.num_states) {
+          (*modes)[i] = type_centers_[u][i];
+        } 
+      }      
     }
   }
   return solution;

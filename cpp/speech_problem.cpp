@@ -137,7 +137,7 @@ void SpeechProblemSet::AlignmentClusterSetUnsup(int problem,
       (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j));
     }
   }
-  assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
+  //assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
 }
 
 void SpeechProblemSet::AlignmentGroupClusterSet(int problem,

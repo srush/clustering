@@ -5,12 +5,18 @@
 #include <assert.h>
 using namespace std;
 
+double LogAdd(double a, double b); 
+
 class Viterbi {
  public:
  Viterbi(int num_states, int num_timesteps, int num_centers, int min_width): 
-  num_states_(num_states), num_timesteps_(num_timesteps), num_centers_(num_centers) , min_width_(min_width), use_sum_(false) {}
+  num_states_(num_states), 
+    num_timesteps_(num_timesteps),
+    num_centers_(num_centers), 
+    min_width_(min_width), 
+    use_sum_(false) {}
 
-
+  // Do marginals instead of min-marginals.
   void set_use_sum() {
     use_sum_ = true;
   }
@@ -22,9 +28,16 @@ class Viterbi {
   void ForwardScores();
   void BackwardScores();
   
+  // Compute the min-marginals of the chart. States x centers.
   void MinMarginals(vector<vector<double> > *min_marginals);
+  
+  // Compute the probabilistic marginals of the chart. 
   void Marginals(vector<vector<vector<double> > > *marginals);
+
+  // Get the best path through the chart. 
   double GetBestPath(vector<int> *path, vector<int> *centers);
+
+  // Get the best score through the chart. 
   double GetBestScore() {
     return forward_scores_[num_timesteps_][num_states_][0];
   }
@@ -48,17 +61,21 @@ class Viterbi {
   }
 
 
-  double state_score(int time, int state, int center) const {
+  double transition_score(int time, int state, int center) const {
     assert(time < num_timesteps_);
     assert(state < num_states_);
     assert(center < num_centers_);
-    return state_score_[time][state][center];
+    return transition_score_[time][state][center];
   }
 
-  void set_state_score(int time, int state, int center, double score) {
-    state_score_[time][state][center] = score;
+  void set_transition_score(int time, int state, int center, double score) {
+    transition_score_[time][state][center] = score;
   }
 
+
+  int num_centers() { return num_centers_; } 
+  int num_states() { return num_states_; } 
+  int num_timesteps() { return num_timesteps_; } 
 
  private:
   // Reset the chart without resizing.
@@ -86,7 +103,7 @@ class Viterbi {
   // The parameters of the viterbi model.
   vector< vector<double> > scores_;
   vector< vector<double> > lambda_;
-  vector< vector< vector<double> > > state_score_;
+  vector< vector< vector<double> > > transition_score_;
 
   bool use_sum_;
 };

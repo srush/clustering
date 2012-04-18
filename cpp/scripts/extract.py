@@ -1,4 +1,4 @@
-import sys
+import sys, os
 sys.path.append(".")
 sys.path.append("sequence")
 sys.path.append("build")
@@ -16,8 +16,8 @@ FLAGS = gflags.FLAGS
 gflags.DEFINE_string('corpus_path', "/home/alexanderrush/Projects/clustering/corpus/TIMITNLTK", 'Path to TIMIT-like corpus')
 gflags.DEFINE_string('output_name', "", 'Output name of this speech problem.')
 gflags.DEFINE_string('data_set', "brugnara", 'Speech data set to use.')
+gflags.DEFINE_integer('clusters', 500, 'Number of clusters to use.')
 gflags.MarkFlagAsRequired('output_name')
-
 
 def load_timit(path):
   return timit.TimitCorpusReader(nltk.data.FileSystemPathPointer(path))
@@ -132,7 +132,7 @@ class SpeechProblem:
 
   # Given all available feature vectors, extract possible centers.
   def extract_centers(self):
-    centers, _ = vq.kmeans2(np.array(self.all_features), 500)
+    centers, _ = vq.kmeans2(np.array(self.all_features), FLAGS.clusters)
     for i, center in enumerate(centers):
       vec = self.center_set.centers.add()
       for dim in center:
@@ -140,15 +140,19 @@ class SpeechProblem:
       segment = self.center_set.segments.add()
 
   def write(self):
-    f = open("problems/%s_pho"%self.output_name, "wb")
+    try:
+      os.mkdir("../data/problems/%s/"%self.output_name)
+    except:
+      pass
+    f = open("../data/problems/%s/pho"%self.output_name, "wb")
     f.write(self.phoneme_set.SerializeToString())
     f.close()
 
-    f2 = open("problems/%s_utt"%self.output_name, "wb")
+    f2 = open("../data/problems/%s/utt"%self.output_name, "wb")
     f2.write(self.utterance_set.SerializeToString())
     f2.close()
 
-    f3 = open("problems/%s_cent"%self.output_name, "wb")
+    f3 = open("../data/problems/%s/cent"%self.output_name, "wb")
     f3.write(self.center_set.SerializeToString())
     f3.close()
 

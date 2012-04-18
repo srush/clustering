@@ -290,7 +290,7 @@ double SpeechKMeans::UnsupExpectation(int utterance_index,
       double score = dist(center,
                           utterance.sequence(s));
       for (int i = 0; i < cluster_problem.num_states; ++i) {
-        viterbi.set_state_score(s, i, type, score);
+        viterbi.set_transition_score(s, i, type, score);
       }
     }
   }
@@ -339,7 +339,7 @@ double SpeechKMeans::Expectation(int utterance_index,
       for (int s = 0; s < cluster_problem.num_steps; ++s) {
         double score = dist(center,
                             utterance.sequence(s));
-        viterbi.set_state_score(s, i, mode, score);
+        viterbi.set_transition_score(s, i, mode, score);
       }
     }
   }
@@ -388,7 +388,7 @@ double SpeechKMeans::GMMExpectation(int utterance_index,
       for (int s = 0; s < cluster_problem.num_steps; ++s) {
         double score = dist(center,
                             utterance.sequence(s));
-        viterbi.set_state_score(s, i, mode, score);
+        viterbi.set_transition_score(s, i, mode, score);
       }
     }
   }

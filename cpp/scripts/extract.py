@@ -28,6 +28,10 @@ class FeatureExtractor:
     fp.addFeature('mfcc: MFCC blockSize=160 stepSize=80')
     fp.addFeature('mfcc_d1: MFCC blockSize=160 stepSize=80 > Derivate DOrder=1')
     fp.addFeature('mfcc_d2: MFCC blockSize=160 stepSize=80 > Derivate DOrder=2')
+    # fp.addFeature('mfcc: MFCC blockSize=512 stepSize=512')
+    # fp.addFeature('mfcc_d1: MFCC blockSize=512 stepSize=512 > Derivate DOrder=1')
+    # fp.addFeature('mfcc_d2: MFCC blockSize=512 stepSize=512 > Derivate DOrder=2')
+
     df = fp.getDataFlow()
 
     self.engine = Engine()
@@ -172,6 +176,8 @@ def main(argv):
     utterance_names = load_brugnara_files(timit)
   elif FLAGS.data_set == "ten":
     utterance_names = load_brugnara_files(timit)[:10]
+  elif FLAGS.data_set == "one":
+    utterance_names = load_brugnara_files(timit)[:1]
 
   speech_problem = SpeechProblem(timit, FLAGS.output_name)
   speech_problem.extract_phonemes()

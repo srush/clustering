@@ -125,5 +125,8 @@ int main(int argc, char **argv) {
         output.close();
       }
     }
+  } else if (FLAGS_algorithm == "lp") {
+    AlignmentLP alignment_lp(*speech_problems);
+    alignment_lp.ConstructLP();
   }
 };

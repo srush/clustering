@@ -131,7 +131,6 @@ double SpeechSubgradient::Primal(SpeechSolution *dual_proposal,
                                  int round, 
                                  vector<DataPoint > *centroids) {
   
-  //cerr << "Dual Proposal score " << dual_proposal->ScoreSolution() << endl;
   double max_medians = problems_.MaximizeMedians(*dual_proposal, centroids);
   for (int type = 0; type < problems_.num_types(); ++type) {
     dual_proposal->set_type_to_special(type, 0, (*centroids)[type]);
@@ -142,7 +141,7 @@ double SpeechSubgradient::Primal(SpeechSolution *dual_proposal,
     dual += hmm_solvers_[u]->Rescore(u, *dual_proposal);
   }
   dual += hidden_solver_->Rescore(*dual_proposal);
-  cerr << "rescore is: " << dual << endl;
+  cerr << "SCORE: rescore is: " << dual << endl;
 
   if (false) {
     stringstream buf;
@@ -402,7 +401,7 @@ void SpeechSubgradient::CheckAlignRound(int u) {
   SetReparameterization2();
   SpeechAlignment alignment;
   double temp = hmm_solvers_[u]->Solve(&alignment);
-  cerr << "check test: " << temp << endl; 
+  cerr << "TEST: check test: " << temp << endl; 
   assert(fabs(temp) < 1e-4);
   SetReparameterization();
 }
@@ -445,7 +444,7 @@ void SpeechSubgradient::CheckCountRound() {
   for (int type = 0; type < cluster_problems_.num_types(); ++type) {
     temp += hop_solvers_[type]->Solve();
   }
-  cerr << "Count check test: " << temp << endl; 
+  cerr << "TEST: Count check test: " << temp << endl; 
   assert(fabs(temp) < 1e-4);
   SetReparameterization();
 }
@@ -494,7 +493,7 @@ void SpeechSubgradient::CheckRecenter(int problem, int i) {
   // vector<vector<double> > center_mu;
   //recenter_solvers_[problem][i]->MaxMarginals(&segment_mu, &center_mu);
   double temp = recenter_solvers_[problem][i]->Solve();
-  cerr << temp << endl;
+  cerr << "TEST: " << temp << endl;
   //cerr << problem << " " << i << " " << temp << endl; 
   assert(fabs(temp) < 1e-4);
   SetReparameterization();
@@ -568,7 +567,7 @@ double SpeechSubgradient::MPLPRecenterRound(int problem, int i) {
 void SpeechSubgradient::CheckKMedians(int type) {
   SetReparameterization2();
   double temp = kmedian_solvers_[type]->Solve();
-  cerr << temp;
+  cerr << "TEST: " << temp << endl;
   assert(fabs(temp) < 1e-4);
   SetReparameterization();
 }
@@ -610,17 +609,17 @@ void SpeechSubgradient::DescentRound(SpeechSolution *dual_solution) {
     //for (int u = 0; u < 5; ++u) {
     clock_t start = clock();
     score = MPLPAlignRound(u, dual_solution);
-    cerr << "Align: " << score << " " << clock() - start  << endl;
+    cerr << "TIME: Align: " << score << " " << clock() - start  << endl;
 
     if (RECENTER) {
       start = clock();
       for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
         score += MPLPRecenterRound(u, i);
       }
-      cerr << "Recenter: " << score << " " << clock() - start  << endl;
+      cerr << "TIME: Recenter: " << score << " " << clock() - start  << endl;
       start = clock();
       score += MPLPCountRound();
-      cerr << "Count: " << clock() - start  << endl;
+      cerr << "TIME: Count: " << clock() - start  << endl;
     }
   }
   if (!RECENTER) {
@@ -740,9 +739,9 @@ void SpeechSubgradient::MPLPRound(int round) {
     SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);
     SetReparameterization2();
     double dual_value = ComputeCompleteDual(dual_solution);
-    cerr << "Subgrad dual is " << dual_value << endl;
+    cerr << "SCORE: Subgrad dual is " << dual_value << endl;
     double primal_value = Primal(dual_solution, round, &centroids);
-    cerr << "primal is " << " " << primal_value;
+    cerr << "SCORE: primal is " << " " << primal_value;
     if (primal_value < best_primal_value_) {
       best_primal_value_ = primal_value;
     } 
@@ -751,19 +750,15 @@ void SpeechSubgradient::MPLPRound(int round) {
   SetReparameterization();
   SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);
   DescentRound(dual_solution);
-  cerr << "Starting reparameterization" << endl;
   SetReparameterization2();
 
-  cerr << "Starting dual" << endl;
   double dual_value = ComputeCompleteDual(dual_solution);
 
   // Actually centroids here.
 
   //vector<DataPoint> centroids;
-  cerr << "Done dual" << endl;
   //double primal_value = Primal(dual_solution, round, &centroids);
   Primal(dual_solution, round, &centroids);
-  cerr << "Starting primal" << endl;
   vector<vector<DataPoint> >centers; 
   centers.resize(cluster_problems_.num_modes());
   for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
@@ -791,8 +786,8 @@ void SpeechSubgradient::MPLPRound(int round) {
   // vector <DataPoint> centroids2;
   // problems_.MaximizeMediansHidden(solution, &centroids2);
 
-  cerr << "Final primal value " << best_primal_value_ << " " <<primal_value << endl;
-  cerr << "Final Dual value: " << dual_value << endl;
+  cerr << "SCORE: Final primal value " << best_primal_value_ << " " <<primal_value << endl;
+  cerr << "SCORE: Final Dual value: " << dual_value << endl;
 
   SetReparameterization();
   delete dual_solution;

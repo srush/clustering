@@ -11,7 +11,7 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
   viterbi_->Initialize();
 
   clock_t end = clock();
-  cerr << "Initializing viterbi " << end - start << endl; 
+  cerr << "TIME: Initializing viterbi " << end - start << endl; 
 
   start = clock();
   // Update semi_markov weights with hidden scores.
@@ -29,7 +29,7 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
   }
 
   end = clock();
-  cerr << "Initializing viterbi " << end - start << endl; 
+  cerr << "TIME: Initializing viterbi " << end - start << endl; 
   return viterbi_;
 }
 
@@ -46,7 +46,7 @@ double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu,
   // Run the semi-markov model forward and backward.
   viterbi->ForwardScores();
   clock_t end = clock();
-  cerr << "Forward time " << end - start << endl;
+  cerr << "TIME: Forward time " << end - start << endl;
 
   double score = viterbi->GetBestPath(alignment->mutable_alignment(), 
                                       &state_to_center_);
@@ -60,7 +60,7 @@ double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu,
   start = clock();
   viterbi->BackwardScores();
   end = clock();
-  cerr << "Backward time " << end - start << endl;
+  cerr << "TIME: Backward time " << end - start << endl;
 
 
   start = clock();
@@ -122,7 +122,7 @@ double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu,
   //   }
   // }
   end = clock();
-  cerr << "Finishing max-marginals " << end -start << endl;
+  cerr << "TIME: Finishing max-marginals " << end -start << endl;
   delete viterbi;
   return score;
 }
@@ -163,7 +163,6 @@ double HMMViterbiSolver::Solve(SpeechAlignment *alignment) {
     alignment->StateAlign(state, &start, &end);
     (*hidden)[state] = state_to_center_[state];
     check_score += ScoreSegment(start, end - start, state, state_to_center_[state]);
-    //cerr << state << " " << check_score << endl;
   }
   assert(fabs(score - check_score) < 1e-4);
   delete viterbi;

@@ -20,9 +20,11 @@ class AlignmentLP {
     ClusterSet cs_;
     vector<ThinDistanceHolder *> distances_;
     
-    vector< vector < vector <vector <vector <GRBVar > > > > > x; 
-    vector <vector <vector <GRBVar > > >  y; 
-    vector <vector <GRBVar > >  z; 
+    vector< vector< vector < vector <vector <GRBVar > > > > > s; 
+    vector< vector< vector < GRBVar > > > s2; 
+    vector< vector< vector < GRBVar > > > s3; 
+    vector <vector <GRBVar > >  r; 
+    vector <vector <vector <GRBVar > > > t; 
 };
 
 #endif

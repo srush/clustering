@@ -69,6 +69,9 @@ class Viterbi {
   }
 
   void set_transition_score(int time, int state, int center, double score) {
+    if (use_sum_) {
+      assert(score >= 0.0);
+    }
     transition_score_[time][state][center] = score;
   }
 

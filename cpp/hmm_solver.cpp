@@ -42,7 +42,7 @@ SemiMarkov *HMMSolver::InitializeSemiMarkov() {
     }
   }
   clock_t end = clock();
-  cerr << "Initializing semi-markov " << end - start << endl; 
+  cerr << "TIME: Initializing semi-markov " << end - start << endl; 
   return semi_markov;
 }
 
@@ -118,7 +118,7 @@ double HMMSolver::MaxMarginals(vector<vector<double> > *mu) {
     }
   }
   clock_t end = clock();
-  cerr << "Finishing max-marginals " << end -start <<endl;
+  cerr << "TIME: Finishing max-marginals " << end -start <<endl;
   delete semi_markov;
   return score;
 }

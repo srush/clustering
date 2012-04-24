@@ -10,6 +10,20 @@ using namespace std;
 #define LOGZERO 1e7
 typedef unsigned int uint;
 
+double LogAdd(double a, double b) {
+  assert(a >= 0);
+  assert(b >= 0);
+  if (b > LOGZERO) {
+    return a;
+  } else if (a > LOGZERO) {
+    return b;
+  } else {
+    //double c = -log(exp(-a) + exp(-b));
+    //assert(c >= 0);
+    double c = -max(-a, -b) + log1p(exp( -fabs(a - b) ));
+    return c;
+  }
+}
 
 void Viterbi::Initialize() {
   // Size the charts correctly.
@@ -143,7 +157,6 @@ void Viterbi::ForwardScores() {
           if (switch_score < stay_score ) {
             forward_scores_[m][i][c] = switch_score;
             back_pointer_[m][i][c] = back_center;
-            cerr << m << " " << i << " "  << "switch_score" << endl;
           } else {
             forward_scores_[m][i][c] = stay_score;
             back_pointer_[m][i][c] = -1;
@@ -213,7 +226,6 @@ void Viterbi::BackwardScores() {
     for (int c2 = 0; c2 < num_centers_; c2++) {
       best = min(best, backward_scores_[0][0][c2] + lambda(0, c2));
     }
-    cerr << best << " " << forward_scores_[num_timesteps_][num_states_][0] << endl;
     assert(fabs(best - forward_scores_[num_timesteps_][num_states_][0]) < 1e-4);
   } else {
 //     best = 0.0;
@@ -254,22 +266,6 @@ void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
     }
   }
 
-  // double best = INF;
-  // for (int m = 0; m < num_timesteps_; ++m) {
-  //   for (int state = 0; state < num_states_; ++state) {
-  //     for (int c = 0; c < num_centers_; ++c) {
-  //       double trial = (forward_scores_[m][state][c] + 
-  //                       backward_scores_[m + 1][state][c]); 
-  //       if (trial <= best ) {
-  //         cerr << trial << " " << m << " " << state << " " << c << " " << 
-  //           forward_scores_[m][state][c] << " " << 
-  //           backward_scores_[m + 1][state][c] << endl;
-  //       }
-  //       best = min(trial, best);
-  //     }
-  //   }
-  // }
-  // normalization = best;
   for (int m = 0; m < num_timesteps_; ++m) {
     for (int state = 0; state < num_states_; ++state) {
       for (int c = 0; c < num_centers_; ++c) {
@@ -278,31 +274,21 @@ void Viterbi::Marginals(vector<vector<vector<double> > > *marginals) {
             backward_scores_[m + 1][state][c] > 1e7) {
           (*marginals)[m][state][c] = 0.0;
         } else {
-          // if (normalization < (forward_scores_[m][state][c] + 
-          //                      backward_scores_[m + 1][state][c])) {
-          //   (*marginals)[m][state][c] =  1.0;
-          // }  else {
-            (*marginals)[m][state][c] =  
-              exp(-((forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) - normalization));
-            // assert(forward_scores_[m][state][c] +  backward_scores_[m + 1][state][c]+ 1e-4
-            //        >= forward_scores_[num_timesteps_][num_states_][0]);
-          
-            //        }
-            // cerr << normalization << " " << forward_scores_[m][state][c] + 
-            //  backward_scores_[m + 1][state][c] << " " << 
-            //  forward_scores_[m][state][c] << " " << 
-            //  backward_scores_[m + 1][state][c] << " " << (*marginals)[m][state][c] << endl;;
-
-          //assert(normalization <= (forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) );
+          (*marginals)[m][state][c] =  
+            exp(-((forward_scores_[m][state][c] + backward_scores_[m + 1][state][c]) 
+                  - normalization));
         }
 
         if (forward_scores_[m][state][c] > 1e7 || 
             best_back[m + 1][state + 1] > 1e7) {
           (*marginals)[m][state][c] += 0.0;
-        } else {
-            (*marginals)[m][state][c] +=  
-              exp(-((forward_scores_[m][state][c] + best_back[m + 1][state+1]) - normalization));
+        } else if (m - (min_width_ * (state + 1)) >= 0) {
+          (*marginals)[m][state][c] +=  
+            exp(-((forward_scores_[m][state][c] + best_back[m + 1][state+1]) 
+                  - normalization));
         }
+        assert((*marginals)[m][state][c] >= 0.0);
+        assert((*marginals)[m][state][c] <= 1.0);
       }
     }
   }
@@ -375,7 +361,7 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
   }
   clock_t end = clock();
   cerr << "TIME: Min-Marginals " << end - start << endl;
-
+  cerr << "VITERBI: best score is " << best_score << endl; 
 }
 
 double Viterbi::score(int time, int center) const {
@@ -434,12 +420,13 @@ double Viterbi::GetBestPath(vector<int> *path, vector<int> *centers) {
   assert(fabs(check_score - total_score) < 1e-4);
   reverse(path->begin(), path->end());
   reverse(centers->begin(), centers->end());
-  cerr << "SCORE: Viterbi score " << total_score << endl;
-  cerr << "SCORE: Alignment: ";
+  cerr << "VITERBI: Viterbi score " << total_score << endl;
+  cerr << "VITERBI: Alignment: ";
   for (uint p = 0; p < path->size(); ++p) { 
     cerr << (*path)[p] << " ";
   }
-  cerr << "SCORE: Centers: ";
+  cerr << endl;
+  cerr << "VITERBI: Centers: ";
   for (uint o = 0; o < centers->size(); ++o) { 
     cerr << (*centers)[o] << " ";
   }

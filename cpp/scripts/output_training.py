@@ -112,17 +112,17 @@ class VQ:
 
     
   def make_code_book(self, all_features, labels):
-    white_features = all_features #vq.whiten(all_features)
+    white_features = all_features
     print >>sys.stderr, "KMEANS"
     if len(white_features) > 50000:
-      #inds = range(len(white_features))
-      # kmeans_features_inds = random.sample(inds, 50000) 
-      # kmeans_features = [white_features[ind] for ind in kmeans_features_inds]
-      # kmeans_labels = [labels[ind] for ind in kmeans_features_inds]
-      kmeans_features = random.sample(white_features, 50000)  #[white_features[ind] for ind in kmeans_features_inds]
+      inds = range(len(white_features))
+      kmeans_features_inds = random.sample(inds, 50000) 
+      kmeans_features = [white_features[ind] for ind in kmeans_features_inds]
+      kmeans_labels = [labels[ind] for ind in kmeans_features_inds]
+      #kmeans_features = random.sample(white_features, 50000)  #[white_features[ind] for ind in kmeans_features_inds]
     else:
       kmeans_features = white_features
-      #kmeans_labels = labels
+      kmeans_labels = labels
 
     if FLAGS.nca:
       self.write_points("/tmp/nca_test", kmeans_features[:2000], kmeans_labels[:2000])
@@ -195,27 +195,26 @@ def main(argv):
 
   extractor = FeatureExtractor()
   all_features = []
-  #all_states = []
+  all_states = []
   utterance_features = []
   feature_count = 0
   for timit, utterance_names, _ in data_sets:
     for utterance_file in utterance_names:
       features = extractor.extract_features(timit.abspath(utterance_file + ".wav"))
 
-      #utterance_data = construct_gold(timit, utterance_file, features)
-      #states = [state for state,_ in utterance_data]
+      utterance_data = construct_gold(timit, utterance_file, features)
+      states = [state for state,_ in utterance_data]
       
       global_indices = []
-      #for feature, state in features: # izip(features, states):
-      for feature in features: # izip(features, states):
+      for feature, state in izip(features, states):
         all_features.append(feature)
-        #all_states.append(state)
+        all_states.append(state)
         global_indices.append(feature_count)
         feature_count += 1
       utterance_features.append(global_indices)
 
   vq = VQ(FLAGS.vq_size)
-  vqs = vq.make_code_book(all_features, [])
+  vqs = vq.make_code_book(all_features, all_states)
   
   utterance_ind = 0
   for timit, utterance_names, suffix in data_sets:

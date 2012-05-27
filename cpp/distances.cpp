@@ -135,8 +135,9 @@ void DistanceHolder::ComputeLocalDistances() {
 }
 
 double dist(const DataPoint &a, const DataPoint &b) {
-  double d = norm_2(a - b);
-  return d * d;
+  // double d = norm_2(a - b);
+  // return d * d;
+  return norm_1(a - b);
 }
 
 

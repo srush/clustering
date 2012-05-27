@@ -22,9 +22,10 @@ class AlignmentLP {
     
     vector< vector< vector < vector <vector <GRBVar > > > > > s; 
     vector< vector< vector < GRBVar > > > s2; 
-    vector< vector< vector < GRBVar > > > s3; 
     vector <vector <GRBVar > >  r; 
     vector <vector <vector <GRBVar > > > t; 
+
+    vector <vector <vector <vector <GRBVar > > > > position_var; 
 };
 
 #endif

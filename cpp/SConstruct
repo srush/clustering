@@ -7,11 +7,11 @@ env = Environment()
 env.Append(LIBPATH =('.', "kmlocal-1.7.2/src/", "/home/alexanderrush/libs/gurobi452/linux64/lib", "/afs/csail.mit.edu/u/s/srush/h/gurobi452/linux64/lib/"))
 env.Append(CPPPATH =('.', "/home/alexanderrush/libs/gurobi452/linux64/include", "/afs/csail.mit.edu/u/s/srush/h/gurobi452/linux64/include/"))
 
-env.Append(CXX=["g++-4.1"], 
-           CPPFLAGS=['-Werror','-Wall','-g', '-fstack-protector-all'])
-
 # env.Append(CXX=["g++-4.1"], 
-#            CPPFLAGS=['-Werror','-Wall','-O2', '-g', '-DNDEBUG'])
+#            CPPFLAGS=['-Werror','-Wall','-g', '-fstack-protector-all'])
+
+env.Append(CXX=["g++-4.1"], 
+           CPPFLAGS=['-Werror','-Wall','-O2',  '-DNDEBUG'])
 
 
 #env['BUILDERS']['Protoc'] = Builder(action = ProtocBuilder)
@@ -48,7 +48,10 @@ cluster = env.Library('cluster',
                        'kmedians.cpp',
                        'hop_solver.cpp',
                        'recenter_solver.cpp',
-                       'hmm_solver.cpp', 'hmm_viterbi_solver.cpp', "speech_kmeans.cpp", "speech_solution.cpp", "speech_subgrad.cpp", span, semi, proto, distance, viterbi],
+                       'hmm_solver.cpp', 
+                       'hmm_viterbi_solver.cpp', 
+                       'gaussian.cpp', 
+                       "speech_kmeans.cpp", "speech_solution.cpp", "speech_subgrad.cpp", span, semi, proto, distance, viterbi],
                       
 LIBS = [span, semi, proto, distance, viterbi, "gurobi45", "gurobi_c++", "km"])
 
@@ -85,6 +88,10 @@ env.Program('main_mplp',
 
 env.Program('test_viterbi', 
             ['viterbi_test.cpp', "viterbi.cpp"],
+            LIBS =["gtest", "protobuf", "pthread", "gurobi45", "gurobi_c++", "gflags"]) 
+
+env.Program('test_gaussian', 
+            ['gaussian_test.cpp', "gaussian.cpp", "distances.cpp"],
             LIBS =["gtest", "protobuf", "pthread", "gurobi45", "gurobi_c++", "gflags"]) 
 
 # env.Program('test_kmedians', 

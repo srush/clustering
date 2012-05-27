@@ -1,3 +1,4 @@
+import random
 import sys, os
 sys.path.append(".")
 sys.path.append("sequence")
@@ -15,6 +16,7 @@ FLAGS = gflags.FLAGS
 
 gflags.DEFINE_string('corpus_path', "/home/alexanderrush/Projects/clustering/corpus/TIMITNLTK", 'Path to TIMIT-like corpus')
 gflags.DEFINE_string('output_name', "", 'Output name of this speech problem.')
+gflags.DEFINE_boolean('remove_q',  True, "Remove q from the speech segments")
 gflags.DEFINE_string('data_set', "brugnara", 'Speech data set to use.')
 gflags.DEFINE_integer('clusters', 500, 'Number of clusters to use.')
 gflags.MarkFlagAsRequired('output_name')
@@ -25,12 +27,12 @@ def load_timit(path):
 class FeatureExtractor:
   def __init__(self):
     fp = FeaturePlan(sample_rate=16000)
-    fp.addFeature('mfcc: MFCC blockSize=160 stepSize=80')
-    fp.addFeature('mfcc_d1: MFCC blockSize=160 stepSize=80 > Derivate DOrder=1')
-    fp.addFeature('mfcc_d2: MFCC blockSize=160 stepSize=80 > Derivate DOrder=2')
-    # fp.addFeature('mfcc: MFCC blockSize=512 stepSize=512')
-    # fp.addFeature('mfcc_d1: MFCC blockSize=512 stepSize=512 > Derivate DOrder=1')
-    # fp.addFeature('mfcc_d2: MFCC blockSize=512 stepSize=512 > Derivate DOrder=2')
+    # fp.addFeature('mfcc: MFCC blockSize=160 stepSize=80')
+    # fp.addFeature('mfcc_d1: MFCC blockSize=160 stepSize=80 > Derivate DOrder=1')
+    # fp.addFeature('mfcc_d2: MFCC blockSize=160 stepSize=80 > Derivate DOrder=2')
+    fp.addFeature('mfcc: MFCC blockSize=512 stepSize=512')
+    fp.addFeature('mfcc_d1: MFCC blockSize=512 stepSize=512 > Derivate DOrder=1')
+    fp.addFeature('mfcc_d2: MFCC blockSize=512 stepSize=512 > Derivate DOrder=2')
 
     df = fp.getDataFlow()
 
@@ -55,7 +57,18 @@ class FeatureExtractor:
       first = False
     return transposed_features
 
-
+  def random_features(self):
+    features = [(10,10),(10,10),
+                (0,1), (0,1), 
+                (0,1), (0,1), 
+                (0,0), (0,0), 
+                (0,0), (0,0), 
+                (2,0), (2,0), 
+                (0,2), (0,2), 
+                (0,1), (0,1),
+                (10,10),(10,10)] #[np.array([random.random()]) for i in range(40)]
+    return features
+    
 
 class SpeechProblem:
   def __init__(self, corpus, output_name):
@@ -86,28 +99,36 @@ class SpeechProblem:
     utterance.sentence = " ".join(self.corpus.words(file_name))
 
     assert(self.phoneme_map)
+    # TODO: remove me!
+    #features = features[:int(len(features) / 3.0)]
+    #phones = phones[:int(len(phones) / 3.0)]
+    #phones = [phones[3], phones[0], phones[1], phones[0], phones[2], phones[3]]
+
     for phone in phones:
       # Remove phoneme q hack.
-      if phone == "q": continue      
+      if FLAGS.remove_q and phone == "q": continue      
       utterance.phones.append(self.phoneme_map[phone])
 
     last = float(phone_times[-1][2])
     final = len(features)
+    #print final
     segments = []
 
     # Dropped frames. 
     drop = 0 
     drop_set = set()
+    print FLAGS.remove_q
     # Convert timit markers to wave frames. 
     def pos(i): return int(round(i/last * final))
     for (p, s, e) in phone_times:
-      if p == "q": 
+      if FLAGS.remove_q and p == "q": 
         for i in range(pos(s), pos(e)):
           drop_set.add(i)
           drop += 1
       else:
         segments.append(pos(s) - drop)
     segments.append(final - drop)
+    print len(segments)
 
     # Write the correct segments.
     for time in segments:
@@ -119,6 +140,7 @@ class SpeechProblem:
       self.all_features.append(np.array(time_step))
       sequence = utterance.sequence.add()
       utterance.feature_dimensions = len(time_step)
+      #print time_step
       for dim in time_step:
         sequence.dim.append(dim)
 
@@ -126,6 +148,7 @@ class SpeechProblem:
     assert(len(utterance.sequence) == final - drop)
     for end in segments:
       assert(end <= final - drop)
+    print "end", end
 
   def extract_phonemes(self):
     for i, p in enumerate(set(self.corpus.phones())):
@@ -135,7 +158,20 @@ class SpeechProblem:
       self.phoneme_map[p] = i
 
   # Given all available feature vectors, extract possible centers.
+  def random_centers(self):
+    centers = [(10,10), (0,1), (0,0), (2,0)]
+#[np.array([random.random()]) for i in range(FLAGS.clusters)]
+    for i, center in enumerate(centers):
+      vec = self.center_set.centers.add()
+      for dim in center:
+        vec.dim.append(dim)
+      segment = self.center_set.segments.add()
+    
+
   def extract_centers(self):
+    #if len(self.all_features) < 50: 
+     # centers = self.all_features[-FLAGS.clusters:]
+    #else:
     centers, _ = vq.kmeans2(np.array(self.all_features), FLAGS.clusters)
     for i, center in enumerate(centers):
       vec = self.center_set.centers.add()
@@ -174,6 +210,8 @@ def main(argv):
   utterance_names = []
   if FLAGS.data_set == "brugnara":
     utterance_names = load_brugnara_files(timit)
+  elif FLAGS.data_set == "hundred":
+    utterance_names = load_brugnara_files(timit)[:100]
   elif FLAGS.data_set == "ten":
     utterance_names = load_brugnara_files(timit)[:10]
   elif FLAGS.data_set == "one":
@@ -183,8 +221,10 @@ def main(argv):
   speech_problem.extract_phonemes()
   for utterance_file in utterance_names:
     features = extractor.extract_features(timit.abspath(utterance_file + ".wav"))
+    #features = extractor.random_features()
     speech_problem.add_utterance(utterance_file, features)
   speech_problem.extract_centers()
+  #speech_problem.random_centers()
   speech_problem.write()
 
 if __name__ == '__main__':

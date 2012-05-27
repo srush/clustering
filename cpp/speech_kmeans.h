@@ -4,7 +4,7 @@
 #include "distances.h"
 #include "speech_problem.h"
 #include "speech.h"
-
+#include "gaussian.h"
 
 // Setup for the speech subgradient solver.
 class SpeechKMeans {
@@ -23,6 +23,10 @@ class SpeechKMeans {
 
   void set_use_medians(bool use_medians) {
     use_medians_ = use_medians;
+  }
+
+  void set_use_isotropic(bool use_isotropic) {
+    use_isotropic_ = use_isotropic;
   }
 
   void set_use_gmm() {
@@ -75,6 +79,7 @@ class SpeechKMeans {
 
   // The centers of the clusters.
   vector<vector<DataPoint> > centers_;
+  vector<vector<Gaussian> > gmms_;
 
   // The number of types.
   int num_types_;
@@ -86,6 +91,7 @@ class SpeechKMeans {
   bool use_gmm_;
 
   bool use_unsupervised_;
+  bool use_isotropic_;
 
   bool unsup_initialized_;
   vector<ThinDistanceHolder *> distances_;

@@ -77,7 +77,7 @@ ClusterProblem::ClusterProblem(int _num_steps,
     num_states(_num_states), 
     state_to_type_(state_to_type), 
     has_gold_(false)
-  {}
+  { }
 
 int ClusterProblem::width_limit() const {
   return cluster_set_->width_limit();

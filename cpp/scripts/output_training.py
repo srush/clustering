@@ -112,7 +112,7 @@ class VQ:
 
     
   def make_code_book(self, all_features, labels):
-    white_features = vq.whiten(all_features)
+    white_features = all_features #vq.whiten(all_features)
     print >>sys.stderr, "KMEANS"
     if len(white_features) > 50000:
       #inds = range(len(white_features))
@@ -122,7 +122,7 @@ class VQ:
       kmeans_features = random.sample(white_features, 50000)  #[white_features[ind] for ind in kmeans_features_inds]
     else:
       kmeans_features = white_features
-      kmeans_labels = labels
+      #kmeans_labels = labels
 
     if FLAGS.nca:
       self.write_points("/tmp/nca_test", kmeans_features[:2000], kmeans_labels[:2000])
@@ -206,7 +206,8 @@ def main(argv):
       #states = [state for state,_ in utterance_data]
       
       global_indices = []
-      for feature, state in features: # izip(features, states):
+      #for feature, state in features: # izip(features, states):
+      for feature in features: # izip(features, states):
         all_features.append(feature)
         #all_states.append(state)
         global_indices.append(feature_count)

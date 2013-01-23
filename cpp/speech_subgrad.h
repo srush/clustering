@@ -23,7 +23,7 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // MPLP stuff.
   double MPLPAlignRound(int problem_num, SpeechSolution *solution);
-  //double MPLPClusterRound();
+  double MPLPClusterRound();
   double MPLPCountRound();
 
   void MPLPRound(int round);
@@ -77,13 +77,6 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   vector<KMediansSolver * > kmedian_solvers_;
 
-  // Hop solver.
-  vector<HOPSolver *> hop_solvers_;
-
-  // Recenter solvers.
-  vector<vector<RecenterSolver *> > recenter_solvers_;
-
-
   // Precomputed terms for solvers.
   vector<ThinDistanceHolder *> distance_holders_;
 
@@ -102,17 +95,6 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   Reparameterization *delta_hmm_;
   Reparameterization *delta_hidden_;
-
-  // For 
-  vector<vector<vector<vector<double> > > > *recenter_reparameterization_;
-  vector<vector<vector<double> > > *hop_reparameterization_;
-
-  vector<vector<vector<vector<double> > > > *recenter_reparameterization2_;
-  vector<vector<vector<double> > > *hop_reparameterization2_;
-
-  // 
-  vector<vector<vector<vector<double> > > > *delta_recenter_;
-  vector<vector<vector<double> > > *delta_hop_;
 
   // Best primal value seen so far.
   double best_primal_value_;

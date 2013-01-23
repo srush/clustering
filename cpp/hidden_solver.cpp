@@ -20,7 +20,7 @@ HiddenSolver::HiddenSolver(const ClusterSet &cs)
 }
 
 // Compute max-marginals.
-double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {  
+double HiddenSolver::MaxMarginals(Reparameterization *mu) {  
   clock_t start = clock();
   double score = Solve();
   clock_t end = clock();
@@ -34,43 +34,38 @@ double HiddenSolver::MaxMarginals(vector<vector<vector<double> > > *mu) {
     }
   }
   // $\sum_{p\neq t(i)} \max_{q'} \sum_{i':t(i') = p} \lambda(i',q') + \sum_{i':t(i') = t(i)} \lambda(i, q)$
-  for (int u = 0; u < cs_.problems_size(); ++u) {
-    const ClusterProblem &problem = cs_.problem(u);
-    for (int i = 0; i < problem.num_states; ++i) {  
-      int marginal_type = problem.MapState(i);
-      for (int hidden = 0; hidden < cs_.num_hidden(marginal_type); ++hidden) {
-        // for (int t = 0; t < cs_.num_types(); ++t) {
-        //   if (t == marginal_type) continue;
-        //   (*mu)[u][i][hidden] += best_score_[t];
-        // }
-        // (*mu)[u][i][hidden] += hidden_costs_[marginal_type][hidden]; 
-        (*mu)[u][i][hidden] = all_best_types;
-        bool found = false;
-        for (int mode = 0; mode < num_modes_; ++mode) {
-          if (best_hidden_[mode][marginal_type] == hidden) {
-            found = true;
-            break;
-          }
+  for (int loc_index = 0; loc_index < cs_.locations(); ++loc_index) {
+    const StateLocation &loc = cs_.location(loc_index);
+    for (int hidden = 0; hidden < cs_.num_hidden(loc.type); ++hidden) {
+      // for (int t = 0; t < cs_.num_types(); ++t) {
+      //   if (t == marginal_type) continue;
+      //   (*mu)[u][i][hidden] += best_score_[t];
+      // }
+      // (*mu)[u][i][hidden] += hidden_costs_[marginal_type][hidden]; 
+      mu->set(loc, hidden, all_best_types);
+      bool found = false;
+      for (int mode = 0; mode < num_modes_; ++mode) {
+        if (best_hidden_[mode][loc.type] == hidden) {
+          found = true;
+          break;
         }
-        if (!found) {
-          double change =             
-            - hidden_costs_[marginal_type][best_hidden_[num_modes_ - 1][marginal_type]]
-            + hidden_costs_[marginal_type][hidden];
-          assert(change >= -1e-4);
-          (*mu)[u][i][hidden] += change; 
-        }  
       }
+      if (!found) {
+        double change =             
+          - hidden_costs_[loc.type][best_hidden_[num_modes_ - 1][loc.type]]
+          + hidden_costs_[loc.type][hidden];
+        assert(change >= -1e-4);
+        mu->augment(loc, hidden, change); 
+      }  
     }
   }
-  for (int u = 0; u < cs_.problems_size(); ++u) {
-    const ClusterProblem &problem = cs_.problem(u);
-    for (int i = 0; i < problem.num_states; ++i) {  
-      int type = problem.MapState(i);
-      for (int hidden = 0; hidden < cs_.num_hidden(type); ++hidden) {
-        assert((*mu)[u][i][hidden] - score > -1e-4);
-      }
+  for (int loc_index = 0; loc_index < cs_.locations(); ++loc_index) {
+    const StateLocation &loc = cs_.location(loc_index);
+    for (int hidden = 0; hidden < cs_.num_hidden(loc.type); ++hidden) {
+      assert(mu->get(loc, hidden) - score > -1e-4);
     }
   }
+  
   end = clock();
   cerr << "Finishing clustering " << end - start << endl;
   return score;

@@ -112,22 +112,22 @@ int main(int argc, char **argv) {
       speech_subgrad->MPLPRound(i);
       cerr << "INFO: Round: " << i << endl;
 
-      if (i % 10 == 5) {
-        cerr << "INFO: Running kmeans" << endl;
-        kmeans.SetCenters(speech_subgrad->centers());
-        kmeans.set_use_medians(true);
-        kmeans.Run(2);
+      // if (i % 10 == 5) {
+      //   cerr << "INFO: Running kmeans" << endl;
+      //   kmeans.SetCenters(speech_subgrad->centers());
+      //   kmeans.set_use_medians(true);
+      //   kmeans.Run(2);
         
-        // Write out kmeans solution
-        stringstream buf;
-        buf << "results/" << FLAGS_problem_name << "_lr_solution_" << FLAGS_output_name << " " << i;
-        fstream output(buf.str().c_str(), ios::out | ios::binary);
-        SpeechSolution *solution = kmeans.MakeSolution();
-        speech::SpeechSolution sol;
-        solution->ToProtobuf(sol, *speech_problems);
-        sol.SerializeToOstream(&output);
-        output.close();
-      }
+      //   // Write out kmeans solution
+      //   stringstream buf;
+      //   buf << "results/" << FLAGS_problem_name << "_lr_solution_" << FLAGS_output_name << " " << i;
+      //   fstream output(buf.str().c_str(), ios::out | ios::binary);
+      //   SpeechSolution *solution = kmeans.MakeSolution();
+      //   speech::SpeechSolution sol;
+      //   solution->ToProtobuf(sol, *speech_problems);
+      //   sol.SerializeToOstream(&output);
+      //   output.close();
+      // }
     }
   } else if (FLAGS_algorithm == "lp") {
     AlignmentLP alignment_lp(*speech_problems);

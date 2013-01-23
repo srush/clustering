@@ -11,8 +11,6 @@ class HiddenSolver {
  public:
   HiddenSolver(const ClusterSet &cs); 
 
-               //int num_types, int num_hidden);
-
   // Find the best hidden for each type. Works dynamically, so takes
   // into account updates.
   double Solve(); 
@@ -20,7 +18,7 @@ class HiddenSolver {
   /* void Update(int type, int hidden, double score) { */
 
   /* } */
-  void set_reparameterization(vector<vector<vector<double> > > *reparameterization) {
+  void set_reparameterization(Reparameterization *reparameterization) {
     reparameterization_ = reparameterization;
 
     for (int type = 0; type < cs_.num_types(); ++type) {
@@ -28,13 +26,10 @@ class HiddenSolver {
         hidden_costs_[type][hidden] = 0.0;
       }
     }
-    for (int problem = 0; problem < cs_.problems_size(); ++problem) {
-      for (int state = 0; state < cs_.problem(problem).num_states; ++state) {
-        int type = cs_.problem(problem).MapState(state);
-        for (int hidden = 0; hidden < cs_.num_hidden(type); ++hidden) {
-          hidden_costs_[type][hidden] += 
-            (*reparameterization)[problem][state][hidden];
-        }
+    for (int loc_index = 0; loc_index < cs_.locations(); ++loc_index) {
+      const StateLocation &loc = cs_.location(loc_index);
+      for (int hidden = 0; hidden < cs_.num_hidden(loc.type); ++hidden) {
+        hidden_costs_[loc.type][hidden] += reparameterization->get(loc, hidden);
       }
     }
   }
@@ -43,7 +38,7 @@ class HiddenSolver {
   /* } */
 
   // Compute max-marginals.
-  double MaxMarginals(vector<vector<vector<double> > > *mu);
+  double MaxMarginals(Reparameterization *mu);
   
       /* void ToSubgrad(const ClusterSet &cs,  */
       /*            const BallHolder &ball_holder, */
@@ -63,7 +58,7 @@ class HiddenSolver {
   vector<bool> type_dirty_;
 
   // The cost of a *type* choosing a center. Assumed dynamic.
-  vector<vector <double> > hidden_costs_;
+  vector<vector<double> > hidden_costs_;
 
   // The current best hidden for a type score. 
   vector<vector<double> >  best_score_; 
@@ -73,7 +68,7 @@ class HiddenSolver {
   vector<vector<int> > best_hidden_;
 
   const ClusterSet &cs_;
-  const vector<vector<vector<double > > > *reparameterization_;
+  const Reparameterization *reparameterization_;
 
   int num_modes_;
 };

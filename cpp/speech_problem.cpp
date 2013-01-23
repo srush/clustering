@@ -72,7 +72,7 @@ void SpeechProblemSet::CacheTypeOccurence() {
     const ClusterProblem &problem = cluster_set_->problem(u);
     for (int s = 0; s < problem.num_states; ++s) {
       int p = problem.MapState(s);
-      state_locations_[p].push_back(StateLocation(u, s));
+      state_locations_[p].push_back(StateLocation(u, s, p));
     }
   }
 }

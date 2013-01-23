@@ -12,12 +12,6 @@ class SpeechProblem {
 
 };
 
-struct StateLocation {
-StateLocation(int _problem, int _state): problem(_problem), state(_state) {}
-  int problem;
-  int state;
-};
-
 
 class SpeechProblemSet {
  public:

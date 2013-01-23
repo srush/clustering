@@ -9,8 +9,7 @@ kmedians *KMediansSolver::InitializeKMedians() {
   for (int j = 0; j < sp_.type_occurence_size(type_); ++j ) {
     StateLocation loc = sp_.type_occurence(type_, j);
     for (int center = 0; center < cp_.num_hidden(0); ++center ) {
-      kmeds->set_score(j, center, 
-                       (*repar_)[loc.problem][loc.state][center]);
+      kmeds->set_score(j, center, repar_->get(loc, center));
     }
   }
   return kmeds;

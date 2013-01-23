@@ -14,7 +14,7 @@ class KMediansSolver {
   // into account updates.
   double Solve(); 
   
-  void set_reparameterization(vector<vector<vector<double> > > *repar) {
+  void set_reparameterization(Reparameterization *repar) {
     repar_ = repar;
   }
 
@@ -36,7 +36,7 @@ class KMediansSolver {
   const SpeechProblemSet &sp_;
   const ClusterSet &cp_;
 
-  const vector<vector<vector<double> > > *repar_;
+  const Reparameterization *repar_;
 
   vector<int> centers_;
 };

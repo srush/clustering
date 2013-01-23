@@ -11,6 +11,7 @@
 #include "speech_problem.h"
 #include "hidden_kmedian_solver.h"
 
+
 // Setup for the speech subgradient solver.
 class SpeechSubgradient {//: public SubgradProblem {
  public:
@@ -35,11 +36,11 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   double HiddenDualProposal(SpeechSolution *solution);
   double HiddenDualUnaryProposal(vector<vector<int> > *vars);
-  vector<vector<vector<double> > > *MPLPDiff(const vector<vector<int> > &a, 
-                                             const vector<vector<int> > &b) const;
+  Reparameterization *MPLPDiff(const vector<vector<int> > &a, 
+                               const vector<vector<int> > &b) const;
 
-  void MPLPAugment(vector<vector<vector<double> > > *weights, 
-                   const vector<vector<vector<double> > > &augment,
+  void MPLPAugment(Reparameterization *weights, 
+                   const Reparameterization &augment,
                    double rate);
 
   double MPLPSubgradient(double rate);
@@ -88,16 +89,25 @@ class SpeechSubgradient {//: public SubgradProblem {
   int total_subgrad_;
 
   // Subgrad reparameterizations.
-  vector<vector<vector<double> > > *hmm_reparameterization_;
-  vector<vector<vector<double> > > *hidden_reparameterization_;
+  Reparameterization *hmm_reparameterization_;
+  Reparameterization *hidden_reparameterization_;
+
+  Reparameterization *hmm_reparameterization2_;
+  Reparameterization *hidden_reparameterization2_;
+
+  Reparameterization *delta_hmm_;
+  Reparameterization *delta_hidden_;
+
+  /* vector<vector<vector<double> > > *hmm_reparameterization_; */
+  /* vector<vector<vector<double> > > *hidden_reparameterization_; */
 
   // For mplp.
-  vector<vector<vector<double> > > *hmm_reparameterization2_;
-  vector<vector<vector<double> > > *hidden_reparameterization2_;
+  /* vector<vector<vector<double> > > *hmm_reparameterization2_; */
+  /* vector<vector<vector<double> > > *hidden_reparameterization2_; */
 
   // 
-  vector<vector<vector<double> > > *delta_hmm_;
-  vector<vector<vector<double> > > *delta_hidden_;
+  /* vector<vector<vector<double> > > *delta_hmm_; */
+  /* vector<vector<vector<double> > > *delta_hidden_; */
 
   // For 
   vector<vector<vector<vector<double> > > > *recenter_reparameterization_;

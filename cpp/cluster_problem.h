@@ -8,6 +8,13 @@ using namespace std;
 
 struct ClusterSet;
 
+struct StateLocation {
+StateLocation(int _problem, int _state, int _type): problem(_problem), state(_state), type(_type) {}
+  int problem;
+  int state;
+  int type; 
+};
+
 struct ClusterProblem {
   ClusterProblem(int _num_steps, 
                  int _num_states, 
@@ -52,6 +59,23 @@ private:
 };
 
 
+struct Reparameterization {
+  vector<vector<double > > *problem(int p) { return &data[p]; }
+  vector<double > *state(int p, int s) { return &data[p][s]; }
+  void set(const StateLocation &loc, int center, double value) { 
+    data[loc.problem][loc.state][center] = value;
+  }
+  void augment(const StateLocation &loc, int center, double value) { 
+    data[loc.problem][loc.state][center] += value;
+  }
+
+  double get(int p, int s, int center) const { return data[p][s][center]; }
+  double get(const StateLocation &loc, int center) const { 
+    return get(loc.problem, loc.state, center); 
+  }
+  vector<vector<vector<double> > > data;
+};
+
 
 struct ClusterSet {
 public:
@@ -61,9 +85,12 @@ public:
              int num_balls,
              int width_limit,
              int num_modes);
+
+  int locations() const { return locations_.size(); } 
+  const StateLocation &location(int i) const { return locations_[i]; };
   
   // Creates an reparameterization array for the cluster problem.
-  vector<vector<vector<double > > > *CreateReparameterization() const;
+  Reparameterization *CreateReparameterization() const;
   vector<vector<vector<double > > > *CreateReparameterization2() const;
   vector< vector<vector<vector<double > > > > *CreateReparameterization3() const;
 
@@ -116,6 +143,8 @@ private:
   //int num_balls_;
 
   int num_modes_;  
+
+  vector<StateLocation> locations_;
 };
 
 #endif

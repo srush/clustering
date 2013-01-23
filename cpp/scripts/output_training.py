@@ -12,6 +12,7 @@ import random
 
 random.seed(1)
 
+LENGTH = 1.0
 FLAGS = gflags.FLAGS
 
 inf = float("inf")
@@ -98,7 +99,7 @@ class VQ:
 
   def run_nca(self):
     matrix = []
-    os.system("../../nca/nca /tmp/nca_test 0 10000 0.01 > /tmp/nca_matrix")
+    os.system("../../nca/nca /tmp/nca_test 0 1000 0.01 > /tmp/nca_matrix")
     matrix_file = open("/tmp/nca_matrix")
     for l in matrix_file:
       if l.strip() == "START": continue
@@ -112,28 +113,43 @@ class VQ:
 
     
   def make_code_book(self, all_features, labels):
+    assert(len(all_features) == len(labels))
     white_features = all_features
-    print >>sys.stderr, "KMEANS"
-    if len(white_features) > 50000:
-      inds = range(len(white_features))
-      kmeans_features_inds = random.sample(inds, 50000) 
-      kmeans_features = [white_features[ind] for ind in kmeans_features_inds]
-      kmeans_labels = [labels[ind] for ind in kmeans_features_inds]
-      #kmeans_features = random.sample(white_features, 50000)  #[white_features[ind] for ind in kmeans_features_inds]
-    else:
-      kmeans_features = white_features
-      kmeans_labels = labels
+
+    features_by_class = {} 
+    for feature, label in izip(all_features, labels):
+      features_by_class.setdefault(label, [])
+      features_by_class[label].append(feature)
+
+    kmeans_features = []
+    kmeans_labels = []
+    for label, features in features_by_class.iteritems():
+      inds = range(len(features))
+      kmeans_features_inds = random.sample(inds, 1000) if len(inds) > 1000 else inds 
+      kmeans_features += [features[ind] for ind in kmeans_features_inds]
+      kmeans_labels += [label for ind in kmeans_features_inds]
+    #print len(kmeans_features)
+    #print >>sys.stderr, "KMEANS"
+    # if len(white_features) > 500000:
+    #   inds = range(len(white_features))
+    #   kmeans_features_inds = random.sample(inds, 500000) 
+    #   kmeans_features = [white_features[ind] for ind in kmeans_features_inds]
+    #   kmeans_labels = [labels[ind] for ind in kmeans_features_inds]
+
+    # else:
+    #   kmeans_features = white_features
+    #   kmeans_labels = labels
 
     if FLAGS.nca:
-      self.write_points("/tmp/nca_test", kmeans_features[:2000], kmeans_labels[:2000])
+      self.write_points("/tmp/nca_test", kmeans_features, kmeans_labels)
       matrix = self.run_nca()
-      kmeans_features = [ np.array(np.dot(matrix, feat))[0] for feat in kmeans_features ]
-      white_features =  [ np.array(np.dot(matrix, feat))[0] for feat in white_features ]
+      kmeans_features = [np.array(np.dot(matrix, feat))[0] for feat in kmeans_features ]
+      white_features =  [np.array(np.dot(matrix, feat))[0] for feat in white_features ]
 
     self.code_book, _ = vq.kmeans2(np.array(kmeans_features), 
                                    self.num_code_words)
 
-    #print >>sys.stderr, "Done kmeans"
+    print >>sys.stderr, "Done kmeans"
     vqs, _ = vq.vq(np.array(white_features), 
                    self.code_book)
     return vqs
@@ -145,6 +161,32 @@ class VQ:
     #print vqs
     return vqs
     # TODO: be smart one nearest neighbors
+
+def align(phone_times, features):
+  utterance_data = []
+
+  # Last time of the wave.
+  last = float(phone_times[-1][2])
+
+  # Last position in the features.
+  final_feature_step = len(features)
+
+  def pos(i): #return int(round((i/float(last)) * final_feature_step))
+    return min(max(round((i / LENGTH)), 0), final_feature_step - 1)#(i + 200) / float(160)
+  for (p, s, e) in phone_times:
+    #print p, s, e, pos(s),pos(e)
+    
+    frame_start = pos(s)
+    frame_end = pos(e)
+    if s > (frame_start * LENGTH): frame_start += 1 
+    if e > (frame_end * LENGTH): frame_end += 1 
+
+    for frame in range(frame_start, frame_end):
+      vq_code_word = features[frame]
+      utterance_data.append((p, vq_code_word))
+
+  return utterance_data
+
   
 def construct_gold(corpus, file, vq_features):
   phone_times = corpus.phone_times(file)
@@ -156,14 +198,23 @@ def construct_gold(corpus, file, vq_features):
 
   # Last position in the features.
   final_feature_step = len(vq_features)
+  # (frame * 160) + 200 = mid
+  # frame = (mid - 200) / 160
 
-  def pos(i): return int(round(i/last * final_feature_step))
-
+  def pos(i): #return int(round((i/float(last)) * final_feature_step))
+    return min(max(round((i / 160.0)), 0), final_feature_step - 1)#(i + 200) / float(160)
   for (p, s, e) in phone_times:
     #print p, s, e, pos(s),pos(e)
     
     frame_start = pos(s)
     frame_end = pos(e)
+    if s > (frame_start * 160): frame_start += 1 
+    if e > (frame_end * 160): frame_end += 1 
+    # print p
+    # print "s", frame_start, s, frame_start * 160 
+    # print "e", (frame_end -1), e, (frame_end -1) * 160 
+    # print 
+
     for frame in range(frame_start, frame_end):
       vq_code_word = vq_features[frame]
       utterance_data.append((p, vq_code_word))
@@ -203,12 +254,13 @@ def main(argv):
       features = extractor.extract_features(timit.abspath(utterance_file + ".wav"))
 
       utterance_data = construct_gold(timit, utterance_file, features)
-      states = [state for state,_ in utterance_data]
-      
+      #states = [state for state, feature in utterance_data]
+      #assert(len(states) == len(features))
       global_indices = []
-      for feature, state in izip(features, states):
+
+      for state, feature in utterance_data:
         all_features.append(feature)
-        all_states.append(state)
+        all_states.append(state)        
         global_indices.append(feature_count)
         feature_count += 1
       utterance_features.append(global_indices)
@@ -227,11 +279,13 @@ def main(argv):
       feature_inds = utterance_features[utterance_ind]
       utterance_ind += 1
       vq_features = [vqs[ind] for ind in feature_inds]
+      states = [all_states[ind] for ind in feature_inds]
+      assert(len(vq_features) == len(states))
 
-      utterance_data = construct_gold(timit, utterance_file, vq_features)
-      all_utterances += utterance_data
+      #utterance_data = construct_gold(timit, utterance_file, vq_features)
+      #all_utterances += utterance_data
       
-      print >>out_file, " ".join(["%s/%s"%(p,code) for (p, code) in utterance_data])
+      print >>out_file, " ".join(["%s/%s"%(p,code) for (p, code) in izip(states , vq_features)])
 
   if False:
     correct_steps = 0

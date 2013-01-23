@@ -9,18 +9,18 @@ SpeechKMeans::SpeechKMeans(const SpeechProblemSet &problem_set):
   problems_(problem_set), cluster_problems_(problem_set.MakeClusterSet()),
   path_(cluster_problems_.problems_size()),
   mode_centers_(cluster_problems_.problems_size()),
-  type_centers_(cluster_problems_.problems_size()) {
+  type_centers_(cluster_problems_.problems_size()),
+  use_medians_(false),
+  use_gmm_(false),
+  use_unsupervised_(false),
+  use_isotropic_(false),
+  unsup_initialized_ (false) { 
   num_types_ = cluster_problems_.num_types();
   num_features_ = problem_set.num_features();
   distances_.resize(cluster_problems_.problems_size());
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
     distances_[u] = problems_.MakeDistances(u);
   }
-  use_gmm_ = false;
-  use_isotropic_ = false;
-  use_medians_ = false;
-  use_unsupervised_ = false;
-  unsup_initialized_ = false;
 }
 
 double SpeechKMeans::Run(int rounds) {
@@ -97,7 +97,9 @@ double SpeechKMeans::Expectation(int utterance_index,
 
   // Duplicate each state for every mode.
   Viterbi viterbi(cluster_problem.num_states,
-                  cluster_problem.num_steps, cluster_problems_.num_modes(), 3);
+                  cluster_problem.num_steps, 
+                  cluster_problems_.num_modes(), 
+                  3);
   viterbi.Initialize();
 
 
@@ -107,17 +109,17 @@ double SpeechKMeans::Expectation(int utterance_index,
   for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
     for (int i = 0; i < cluster_problem.num_states; ++i) {
       
-      const Gaussian &gaussian = gmms_[mode][cluster_problem.MapState(i)];
-      for (int s = 0; s < cluster_problem.num_steps; ++s) {
-        double score = -gaussian.LogLikelihood(utterance.sequence(s));
-        viterbi.set_transition_score(s, i, mode, score);
-      }
-      /*const DataPoint &center = centers_[mode][cluster_problem.MapState(i)];
+      // const Gaussian &gaussian = gmms_[mode][cluster_problem.MapState(i)];
+      // for (int s = 0; s < cluster_problem.num_steps; ++s) {
+      //   double score = -gaussian.LogLikelihood(utterance.sequence(s));
+      //   viterbi.set_transition_score(s, i, mode, score);
+      // }
+      const DataPoint &center = centers_[mode][cluster_problem.MapState(i)];
       for (int s = 0; s < cluster_problem.num_steps; ++s) {
         double score = dist(center,
                             utterance.sequence(s));
         viterbi.set_transition_score(s, i, mode, score);
-        }*/
+      }
     }
   }
   cerr << "TIME: score setting " << clock() - start << endl;  
@@ -146,6 +148,7 @@ void SpeechKMeans::Maximization(const vector<vector<vector<DataPoint> > > &sets)
   gmms_.clear();
   int num_modes = cluster_problems_.num_modes();
   gmms_.resize(num_modes);
+  centers_.resize(num_modes);
   if (!use_medians_) {
     for (int mode = 0; mode < num_modes; ++mode) {
       for (int p = 0; p < num_types_; ++p) {
@@ -160,7 +163,6 @@ void SpeechKMeans::Maximization(const vector<vector<vector<DataPoint> > > &sets)
       }
     }
   } else {
-    cerr << "Using Medians " << num_modes << endl;
     for (int mode = 0; mode < num_modes; ++mode) {
       for (int p = 0; p < num_types_; ++p) {
         DataPoint total(num_features_);

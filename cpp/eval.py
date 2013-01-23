@@ -260,13 +260,15 @@ class SpeechSolution:
 
   @staticmethod
   def load(phoneme_file, utterance_file, center_file, alignment_file):
+    print "utterance_set"
+    utterance_set = speech.UtteranceSet()
+    utterance_set.ParseFromString(open(utterance_file, 'r').read())
     print "parsing"
     phoneme_set = speech.PhonemeSet()
-    utterance_set = speech.UtteranceSet()
     utterance_alignments = speech.SpeechSolution()
     centers = speech.CenterSet()
     phoneme_set.ParseFromString(open(phoneme_file,'r').read())
-    utterance_set.ParseFromString(open(utterance_file, 'r').read())
+
     centers.ParseFromString(open(center_file, 'r').read())
     utterance_alignments.ParseFromString(open(alignment_file, 'r').read())
     print "done parsing"

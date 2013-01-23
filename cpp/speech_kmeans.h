@@ -85,6 +85,15 @@ class SpeechKMeans {
   int num_types_;
   int num_features_;
 
+  vector<ThinDistanceHolder *> distances_;
+
+  // The last path from the expectation state.
+  vector<vector<int> > path_;
+  vector<vector<int> > mode_centers_;
+  vector<vector<int> > type_centers_;
+
+
+
   // Force medians instead of means.
   bool use_medians_;
 
@@ -94,12 +103,6 @@ class SpeechKMeans {
   bool use_isotropic_;
 
   bool unsup_initialized_;
-  vector<ThinDistanceHolder *> distances_;
-
-  // The last path from the expectation state.
-  vector<vector<int> > path_;
-  vector<vector<int> > mode_centers_;
-  vector<vector<int> > type_centers_;
   
 };
 

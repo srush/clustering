@@ -8,8 +8,12 @@ using namespace std;
 
 struct ClusterSet;
 
+// Identifier of a phoneme instance. 
 struct StateLocation {
-StateLocation(int _problem, int _state, int _type): problem(_problem), state(_state), type(_type) {}
+  StateLocation(int _problem, int _state, int _type)
+  : problem(_problem), 
+    state(_state), 
+    type(_type) {}
   int problem;
   int state;
   int type; 

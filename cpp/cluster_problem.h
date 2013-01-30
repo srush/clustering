@@ -40,6 +40,8 @@ struct ClusterProblem {
     has_gold_ = true;
   }
 
+  int num_types() const;
+
   void GoldStateAlign(int state, int *s, int *e) const {
     assert(state < num_states);
     (*s) = gold_alignment_[state];

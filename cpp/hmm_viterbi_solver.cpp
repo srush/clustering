@@ -7,7 +7,7 @@ Viterbi *HMMViterbiSolver::InitializeViterbi() {
   viterbi_ = new Viterbi(cp_.num_states, 
                          cp_.num_steps, 
                          cp_.num_hidden(0), 
-                         3);
+                         1);
   viterbi_->Initialize();
 
   clock_t end = clock();
@@ -50,12 +50,21 @@ double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu,
 
   double score = viterbi->GetBestPath(alignment->mutable_alignment(), 
                                       &state_to_center_);
+  cerr << "PATH: ";
+  for (uint i = 0; i < alignment->mutable_alignment()->size(); ++i) {
+    cerr << (*alignment->mutable_alignment())[i] << ":" << state_to_center_[i] << ":" << cp_.MapState(i) << " ";
+  }
+  cerr << endl;
+  
   state_to_center_.resize(cp_.num_states + 1);
+  //cerr << "PATH2: ";
   vector<int> *hidden = alignment->mutable_hidden_alignment();
   hidden->resize(cp_.num_states + 1);
   for (int state = 0; state < cp_.num_states + 1; ++state) {
     (*hidden)[state] = state_to_center_[state];
+    //cerr << state << "/" << state_to_center_[state] << " ";
   }
+  //cerr << endl;
 
   start = clock();
   viterbi->BackwardScores();
@@ -181,7 +190,8 @@ double HMMViterbiSolver::Rescore(int problem, const SpeechSolution &solution) co
   return dual_score;
 }
 
-double HMMViterbiSolver::PrimalRescore(int problem, const SpeechSolution &solution) const {
+double HMMViterbiSolver::PrimalRescore(int problem, 
+                                       const SpeechSolution &solution) const {
     double primal_score = 0.0;
     const SpeechAlignment &alignment = solution.alignment(problem);
     for (int state = 0; state < cp_.num_states; ++state) {

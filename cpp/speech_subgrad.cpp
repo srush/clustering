@@ -10,12 +10,16 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems)
   : problems_(problems), 
     cluster_problems_(problems.MakeClusterSet()),
     hmm_solvers_(problems.utterance_size()),
+    hmm_astar_solvers_(problems.utterance_size()),
     distance_holders_(problems.utterance_size()) {
   for (int index = 0; index < problems.utterance_size(); ++index) {
     const ClusterProblem &problem = cluster_problems_.problem(index);
     distance_holders_[index] = problems.MakeDistances(index);
     hmm_solvers_[index] = 
       new HMMViterbiSolver(problem, *distance_holders_[index]);
+    hmm_astar_solvers_[index] = 
+      new HMMAStarSolver(problem, *distance_holders_[index]);
+
   }
 
   hidden_solver_ = new HiddenSolver(cluster_problems_);
@@ -33,6 +37,7 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems)
 void SpeechSubgradient::SetMPLPUpdateParams() {
   for (uint problem = 0; problem < hmm_solvers_.size(); ++problem) {
     hmm_solvers_[problem]->set_reparameterization(hmm_reparameterization_->problem(problem));
+    hmm_astar_solvers_[problem]->set_reparameterization(hmm_reparameterization_->problem(problem));
   }
   hidden_solver_->set_reparameterization(hidden_reparameterization_);
 }
@@ -40,6 +45,7 @@ void SpeechSubgradient::SetMPLPUpdateParams() {
 void SpeechSubgradient::SetNaturalParams() {
   for (uint problem = 0; problem < hmm_solvers_.size(); ++problem) {
     hmm_solvers_[problem]->set_reparameterization(hmm_reparameterization2_->problem(problem));
+    hmm_astar_solvers_[problem]->set_reparameterization(hmm_reparameterization2_->problem(problem));
   }
   hidden_solver_->set_reparameterization(hidden_reparameterization2_);
 }
@@ -66,18 +72,29 @@ double SpeechSubgradient::DualProposal(SpeechSolution *solution) const {
   double dual = 0.0;
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
     SpeechAlignment *alignment = solution->mutable_alignment(u);
-    dual += hmm_solvers_[u]->Solve(alignment);
+    dual += hmm_astar_solvers_[u]->Solve(alignment);
   }
   return dual;
 }
 
+// double SpeechSubgradient::HiddenDualProposal(SpeechSolution *solution) {
+//   double dual = 0.0;
+//   for (int type = 0; type < problems_.num_types(); ++type) {
+//     dual = kmedian_solvers_[type]->Solve();  
+//     for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
+//       solution->set_type_to_hidden(type, mode, 
+//                                    kmedian_solvers_[type]->get_mode(mode));
+//     }
+//   }
+//   return dual;
+// }
+
 double SpeechSubgradient::HiddenDualProposal(SpeechSolution *solution) {
-  double dual = 0.0;
+  double dual = hidden_solver_->Solve();  
   for (int type = 0; type < problems_.num_types(); ++type) {
-    dual = kmedian_solvers_[type]->Solve();  
     for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
       solution->set_type_to_hidden(type, mode, 
-                                   kmedian_solvers_[type]->get_mode(mode));
+                                   hidden_solver_->TypeToHidden(type, mode));
     }
   }
   return dual;
@@ -111,14 +128,11 @@ double SpeechSubgradient::HiddenDualUnaryProposal(vector<vector<int> > *vars ) {
 
 Reparameterization *SpeechSubgradient::MPLPDiff(const vector<vector<int> > &a, 
                                                 const vector<vector<int> > &b) const {
-  Reparameterization *diff  = 
-    cluster_problems_.CreateReparameterization();
-  
-  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    for (int i = 0; i < cluster_problems_.problem(u).num_states; ++i) {
-      diff->data[u][i][a[u][i]] += 1.0;
-      diff->data[u][i][b[u][i]] -= 1.0;
-    }
+  Reparameterization *diff  = cluster_problems_.CreateReparameterization();
+  for (int loc_index = 0; loc_index < cluster_problems_.locations(); ++loc_index) {
+    const StateLocation &loc = cluster_problems_.location(loc_index);
+    diff->augment(loc, a[loc.problem][loc.state], 1.0);
+    diff->augment(loc, b[loc.problem][loc.state], -1.0);
   }
   return diff;
 }
@@ -128,22 +142,23 @@ void SpeechSubgradient::MPLPAugment(Reparameterization *weights,
                                     double rate) {
   for (int loc_index = 0; loc_index < cluster_problems_.locations(); ++loc_index) {
     const StateLocation &loc = cluster_problems_.location(loc_index);
-    for (int h = 0; h < cluster_problems_.num_hidden(loc.type); ++h) {
+    for (int h = 0; h < num_hidden(loc); ++h) {
       weights->augment(loc, h, rate * augment.get(loc, h));
     }
   }
 }
 
-double SpeechSubgradient::MPLPSubgradient(double rate) {
+double SpeechSubgradient::MPLPSubgradient(double rate, 
+                                          SpeechSolution *solution) {
   // Compute the dual proposal.
   SetNaturalParams();
-  SpeechSolution solution(cluster_problems_);
+  //SpeechSolution solution(cluster_problems_);
   double dual = 0.0;
-  dual += DualProposal(&solution);
-  dual += HiddenDualProposal(&solution);
-  vector<vector<int> > hmm = solution.AlignmentAssignments();
+  dual += DualProposal(solution);
+  dual += HiddenDualProposal(solution);
+  vector<vector<int> > hmm = solution->AlignmentAssignments();
   vector<vector<int> > cluster;
-  cluster = solution.ClusterAssignments();
+  cluster = solution->ClusterAssignments();
   
   vector<vector<int> > unary;
   dual += HiddenDualUnaryProposal(&unary);
@@ -205,24 +220,14 @@ double SpeechSubgradient::MPLPAlignRound(int problem_num,
     int type = problem.MapState(i);
     StateLocation loc(u, i, type);
     for (int hidden = 0; hidden < num_hidden(loc); ++hidden) {
-      hidden_reparameterization_->set(loc, hidden, 
-                                      delta_hmm_->get(loc, hidden));
-      hmm_reparameterization2_->set(loc, hidden, 
-                                    -delta_hmm_->get(loc, hidden));
+      hidden_reparameterization_->set(loc, hidden, delta_hmm_->get(loc, hidden));
+      hmm_reparameterization2_->set(loc, hidden, -delta_hmm_->get(loc, hidden));
     }
   }
   if (CHECK) CheckAlignRound(u);
   return score;
 }
 
-
-// void SpeechSubgradient::CheckKMedians(int type) {
-//   SetNaturalParams();
-//   double temp = kmedian_solvers_[type]->Solve();
-//   cerr << "TEST: " << temp << endl;
-//   assert(fabs(temp) < 1e-4);
-//   SetMPLPUpdateParams();
-// }
 
 double SpeechSubgradient::MPLPClusterRound() {
   // Resize the max marginal set. 
@@ -263,14 +268,22 @@ void SpeechSubgradient::MPLPDescentRound(SpeechSolution *dual_solution) {
     // Run alignment (Viterbi) solver.
     clock_t start = clock();
     score = MPLPAlignRound(u, dual_solution);
-    cerr << "TIME: Align: " << score << " " << clock() - start  << endl;
+    cerr << "TIME: Align round: " << u << " " << score << " " << clock() - start  << endl;
   }
+  clock_t start = clock();
   MPLPClusterRound();
+  cerr << "TIME: Cluster round: " << clock() - start  << endl;
 }
 
 double SpeechSubgradient::ComputeCompleteDual(SpeechSolution *solution) {
   double dual_value = 0.0;
   dual_value += ComputeDualSegment(solution);  
+  // SpeechSolution unary_solution(cluster_problems_);  
+  // for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+  //   SpeechAlignment *align = unary_solution.mutable_alignment(u);
+  //   dual_value += hmm_solvers_[u]->Solve(align);
+  //  }
+  //dual_value += hidden_solver_->Solve();
   return dual_value;
 }
 
@@ -285,9 +298,10 @@ double SpeechSubgradient::ComputeDualSegment(SpeechSolution *solution) {
     for (int i = 0; i < problem.num_states; ++i) {
       double best_hidden = INF;
       int type = problem.MapState(i);
-      for (int hidden = 0; hidden < cluster_problems_.num_hidden(type); ++hidden) {
+      StateLocation loc(u, i, type);
+      for (int hidden = 0; hidden < num_hidden(loc); ++hidden) {
         double trial = 
-          delta_hmm_->get(u, i, hidden) + delta_hidden_->get(u, i, hidden);
+          delta_hmm_->get(loc, hidden) + delta_hidden_->get(loc, hidden);
         if (trial < best_hidden) {
           best_hidden = trial;
           (*state_hidden)[i] = hidden;
@@ -299,24 +313,35 @@ double SpeechSubgradient::ComputeDualSegment(SpeechSolution *solution) {
   return dual_value;
 }
 
-// Runs a round of MPLP. 
-void SpeechSubgradient::MPLPRound(int round) {
+void SpeechSubgradient::MPLPRunSubgrad(int round) {
+  for (int i = 0; i < 1; ++i) {
+    vector<DataPoint> centroids;
+    SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);    
+    double dual = MPLPSubgradient(100.0 / (float)(i + round + 1), dual_solution);
+    
+    SetNaturalParams();
+    double dual_value = ComputeCompleteDual(dual_solution);
+    cerr << "SCORE: Subgrad dual is " << i << " " << dual << " " << dual_value << " " 
+         << centroids.size() << endl;
+    double primal_value = Primal(dual_solution, i, &centroids);
+    cerr << "SCORE: Subgrad primal is " << " " << primal_value << endl;
+    if (primal_value < best_primal_value_) {
+      best_primal_value_ = primal_value;
+    } 
+    if ((round + 1) % 10 ==  0) {
+       LocalSearch(dual_solution);
+    }
+    cerr << "GAP: " << abs(best_primal_value_ - dual_value) << " " <<  best_primal_value_ << " " << dual_value << endl;
+    cerr << "SCORE: Final primal value " 
+         << best_primal_value_ << endl;
 
-  // Run a round of coordinate descent. 
-  SetMPLPUpdateParams();
-  SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);
-  MPLPDescentRound(dual_solution);
+    delete dual_solution;
+  }
+}
 
-  // Compute the current dual value. 
-  SetNaturalParams();
-  double dual_value = ComputeCompleteDual(dual_solution);
-
-  // Compute the primal solution. 
-  vector<DataPoint> centroids;
-  Primal(dual_solution, round, &centroids);
-
+void SpeechSubgradient::LocalSearch(SpeechSolution *dual_solution) {
   // Use the centroids to compute the best primal solution.
-  vector<vector<DataPoint> >centers; 
+  vector<vector<DataPoint> > centers; 
   centers.resize(cluster_problems_.num_modes());
   for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
     centers[mode].resize(cluster_problems_.num_types());
@@ -325,23 +350,49 @@ void SpeechSubgradient::MPLPRound(int round) {
     }
   }
   double primal_value = 0.0;
-  if (round % 3 == 0) { 
-    SpeechKMeans kmeans(problems_);
-    kmeans.SetCenters(centers);
-    kmeans.set_use_medians(true);
-    primal_value = kmeans.Run(2);
+  
+  SpeechKMeans kmeans(problems_);
+  kmeans.SetCenters(centers);
+  kmeans.set_use_medians(true);
+  primal_value = kmeans.Run(1);
+  
+  if (primal_value < best_primal_value_) {
+    best_primal_value_ = primal_value;
+    best_centers_ = centers;
+  } 
+}
 
-    if (primal_value < best_primal_value_) {
-      best_primal_value_ = primal_value;
-      best_centers_ = centers;
-    } 
+// Runs a round of MPLP. 
+void SpeechSubgradient::MPLPRound(int round) {
+  if (round > -1) {
+    MPLPRunSubgrad(round);
+    return;
   }
 
+  // Run a round of coordinate descent. 
+  SetMPLPUpdateParams();
+  SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);
+
+  clock_t start = clock();
+  MPLPDescentRound(dual_solution);
+  cerr << "TIME: Descent: " << clock() - start  << endl;
+  // Compute the current dual value. 
+  SetNaturalParams();
+  double dual_value = ComputeCompleteDual(dual_solution);
+
+  // Compute the primal solution. 
+  vector<DataPoint> centroids;
+  double primal_value = Primal(dual_solution, round, &centroids);
+  if (primal_value < best_primal_value_) best_primal_value_ = primal_value;
+  if ((round + 1) % 25 == 0) {
+    LocalSearch(dual_solution);
+  }
   // Log the dual and primal values.
   cerr << "SCORE: Final primal value " 
-       << best_primal_value_ << " " 
-       << primal_value << endl;
+       << best_primal_value_ << endl;
   cerr << "SCORE: Final Dual value: " << dual_value << endl;
+
+  cerr << "GAP: " << round << " " << abs(best_primal_value_ - dual_value) << " " <<  best_primal_value_ << " " << dual_value;
 
   // Reset the parameterization.
   SetMPLPUpdateParams();

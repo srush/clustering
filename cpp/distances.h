@@ -19,18 +19,24 @@ private:
 
 };
 
+
 class ThinDistanceHolder {
  public:
-  ThinDistanceHolder(const vector<Center> &center_set,
-                     const vector<const DataPoint *> &time_steps) :
-  center_set_(center_set), 
-    time_steps_(time_steps)
-    {
-      cerr << "Thin Distance Holder with "
-           << center_set_.size() << " " << time_steps_.size() << endl;
-    } 
+  /* ThinDistanceHolder(const vector<Center> &center_set, */
+  /*                    const vector<const DataPoint *> &time_steps) : */
+  /* center_set_(center_set),  */
+  /*   time_steps_(time_steps) */
+  /*   { */
+  /*     cerr << "Thin Distance Holder with " */
+  /*          << center_set_.size() << " " << time_steps_.size() << endl; */
+  /*   }  */
 
-  void Initialize();
+  /* void Initialize(const vector<Center> &center_set, */
+  /*                 const vector<const DataPoint *> &time_steps); */
+
+  void Initialize(const vector<Center> &center_set,
+                  const vector<vector<const DataPoint *> > &time_steps);
+
 
   double get_distance(int time, int center) const {
     //cassert(initialized_);
@@ -40,9 +46,34 @@ class ThinDistanceHolder {
   // Distance between each time step to a center.
   vector<vector<double > > distance_;
 
-  const vector<Center> &center_set_;
-  const vector<const DataPoint *> &time_steps_;
+  /* const vector<Center> &center_set_; */
+  /* const vector<const DataPoint *> &time_steps_; */
 };
+
+/* class ChunkDistanceHolder { */
+/*  public: */
+/*   ChunkDistanceHolder(const vector<Center> &center_set, */
+/*                      const vector<vector<const DataPoint *> > &time_steps)  */
+/*   : center_set_(center_set),  */
+/*     time_steps_(time_steps) { */
+/*       cerr << "Chunk Distance Holder with " */
+/*            << center_set_.size() << " " << time_steps_.size() << endl; */
+/*     }  */
+
+/*   void Initialize(); */
+
+/*   double get_distance(int time, int center) const { */
+/*     //cassert(initialized_); */
+/*     return distance_[time][center]; */
+/*   } */
+/*  private: */
+/*   // Distance between each time step to a center. */
+/*   vector<vector<double > > distance_; */
+
+/*   const vector<Center> &center_set_; */
+/*   const vector<vector<const DataPoint *> >  &time_steps_; */
+/* }; */
+
 
 // Precompute the distance from each span to each cluster center. 
 class DistanceHolder {

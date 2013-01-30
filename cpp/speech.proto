@@ -14,12 +14,21 @@ message Vector {
     repeated double dim = 1;
 }
 
+message Chunk {
+    repeated Vector points = 1;
+}
+
 message Utterance {
     // Phones in the utterance. Represented as pointers to the phoneme set. 
     repeated int32 phones = 1;
 
     // The timesteam of data points.
     repeated Vector sequence = 2;
+
+    // A timestream of data chunks. 
+    repeated Chunk chunk_sequence = 8;
+
+    optional bool is_chunk_sequence = 9;
 
     // The number of dimensions of the feature vectors.
     required int32 feature_dimensions = 3;

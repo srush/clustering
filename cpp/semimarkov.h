@@ -9,16 +9,13 @@ using namespace std;
 
 class SemiMarkov {
  public:
- SemiMarkov(int states, int timesteps, int width_limit) : 
-  num_states_(states),
+ SemiMarkov(int states, int timesteps, int width_limit) 
+   : num_states_(states),
     num_timesteps_(timesteps),
     width_limit_(width_limit),
     initialized_(false),
     forward_(false),
-    backward_(false)
-      {
-        assert(num_states_< num_timesteps_);
-      }
+    backward_(false) { assert(num_states_< num_timesteps_); }
 
   ~SemiMarkov () {
     delete scores_;

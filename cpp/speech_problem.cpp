@@ -79,17 +79,15 @@ void SpeechProblemSet::CacheTypeOccurence() {
 
 ThinDistanceHolder *SpeechProblemSet::MakeDistances(int problem) const {
   if (holder_[problem] == NULL) {
-    vector<const DataPoint * > *time_steps = new vector<const DataPoint*>();
+    vector<vector<const DataPoint * > > *time_steps = new vector<vector<const DataPoint*> >(utterances_[problem]->sequence_size());
     for (int i = 0; i < utterances_[problem]->sequence_size(); ++i) {
-      time_steps->push_back(&utterances_[problem]->sequence(i));
+      for (int j = 0; j < utterances_[problem]->sequence_points(i); ++j) {
+        (*time_steps)[i].push_back(&utterances_[problem]->sequence(i, j));
+      }
     }
-    // holder_[problem] = new DistanceHolder(*centers_, 
-    //                                       *time_steps, 
-    //                                       utterances_[problem]->max_phone_length());
-    holder_[problem] = new ThinDistanceHolder(*centers_, 
-                                              *time_steps);
-    holder_[problem]->Initialize();
-    //holder_[problem]->ComputeDistances();
+    holder_[problem] = new ThinDistanceHolder();
+    holder_[problem]->Initialize(*centers_,
+                                 *time_steps);
   }
   return holder_[problem];
 }
@@ -117,7 +115,9 @@ void SpeechProblemSet::AlignmentClusterSet(int problem,
     int type = cluster_problem.MapState(i);
     int mode = centers[i];
     for (int j = start; j < end; ++j) {
-      (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j));
+      for (int k = 0; k < utterance(problem).sequence_points(j); ++k) {
+        (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j, k));
+      }
     }
   }
   assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
@@ -134,7 +134,7 @@ void SpeechProblemSet::AlignmentClusterSetUnsup(int problem,
     int type = centers[i];
     int mode = 0;
     for (int j = start; j < end; ++j) {
-      (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j));
+      (*cluster_sets)[mode][type].push_back(utterance(problem).sequence(j, 0));
     }
   }
   //assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
@@ -152,7 +152,7 @@ void SpeechProblemSet::AlignmentGroupClusterSet(int problem,
     int start = alignment[i];
     int end = alignment[i + 1];
     for (int j = start; j < end; ++j) {
-      (*cluster_sets)[type][last].push_back(utterance(problem).sequence(j));
+      (*cluster_sets)[type][last].push_back(utterance(problem).sequence(j, 0));
     }
   }
   assert(alignment.size() - 1 == (uint)cluster_problem.num_states);
@@ -181,17 +181,19 @@ double SpeechProblemSet::MaximizeCenters(const vector<vector<DataPoint> > &clust
 DataPoint SpeechProblemSet::Centroid(int problem, int start, int end) const {
   DataPoint query(num_features());
   for (int i = start; i <= end; ++i) {
-    query += utterances_[problem]->sequence(i);
+    for (int j = 0; j < utterances_[problem]->sequence_points(i); ++j) {
+      query += utterances_[problem]->sequence(i, j);
+    }
   }
   return query / float(end - start + 1);
 }
 
 double SpeechProblemSet::MaximizeMedians(
-                                         const SpeechSolution &bad_speech_solution,
-                                         vector<DataPoint> *centroids) const {
+                      const SpeechSolution &bad_speech_solution,
+                      vector<DataPoint> *centroids) const {
   double total = 0.0;
   centroids->clear();
-
+  centroids->resize(num_types());
   // For each type and state, find the centroid.
   for (int p = 0; p < num_types(); ++p) {
     int count = 0;
@@ -201,25 +203,29 @@ double SpeechProblemSet::MaximizeMedians(
       int s,e;
       bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
       for (int i = s; i <= e; ++i) {
-        query += utterances_[location.problem]->sequence(i);
-        ++count;
+        for (int j = 0; j < utterances_[location.problem]->sequence_points(i); ++j) {
+          query += utterances_[location.problem]->sequence(i, j);
+          ++count;
+        }
       }
     }
     DataPoint centroid = query / (float)count;
     DataPoint closest(num_features());
     double best = 100000;
-    for (int i = 0; i < type_occurence_size(p); ++i) {
-      StateLocation location = type_occurence(p, i);
-      int s,e;
-      bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
-      for (int q = 0; q < centers_size(); ++q) {
-        const DataPoint &possible_center = center(q).point();
-        double trial = dist(possible_center, centroid) ;
-        if (trial < best) {
-          closest = possible_center;
-          best = trial;
-        }
+    for (int q = 0; q < centers_size(); ++q) {
+      const DataPoint &possible_center = center(q).point();
+      double trial = dist(possible_center, centroid);
+      if (trial < best) {
+        closest = possible_center;
+        best = trial;
       }
+    }
+    (*centroids)[p] = closest;
+    
+    // for (int i = 0; i < type_occurence_size(p); ++i) {
+    //   StateLocation location = type_occurence(p, i);
+    //   int s,e;
+    //   bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
       // for (int i = s; i <= e; ++i) {
       //   double trial = dist(utterances_[location.problem]->sequence(i), centroid) ;
       //   if (trial < best) {
@@ -231,20 +237,87 @@ double SpeechProblemSet::MaximizeMedians(
       // for () {
 
       // }
-    }
-    centroids->push_back(closest);
+      //}
     for (int i = 0; i < type_occurence_size(p); ++i) {
       StateLocation location = type_occurence(p, i);
-      int s,e;
+      int s, e;
       bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
       for (int i = s; i <= e; ++i) {
-        total += dist(utterances_[location.problem]->sequence(i), closest);
+        for (int j = 0; j < utterances_[location.problem]->sequence_points(i); ++j) {
+          total += dist(utterances_[location.problem]->sequence(i, j), closest);
+        }
       }
     }
   }
 
   return total;
 }
+
+// double SpeechProblemSet::MaximizeMedians(
+//                       const SpeechSolution &bad_speech_solution,
+//                       vector<DataPoint> *centroids) const {
+//   double total = 0.0;
+//   centroids->clear();
+//   centroids->resize(num_types());
+//   // For each type and state, find the centroid.
+//   for (int p = 0; p < num_types(); ++p) {
+//     //int count = 0;
+//     DataPoint query(num_features());
+//     //DataPoint centroid = query / (float)count;
+//     DataPoint closest(num_features());
+//     double best = 100000;
+//     for (int q = 0; q < centers_size(); ++q) {
+//       const DataPoint &possible_center = center(q).point();
+//       double trial = 0.0;
+//       for (int i = 0; i < type_occurence_size(p); ++i) {
+//         StateLocation location = type_occurence(p, i);
+//         int s,e;
+//         bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
+//         for (int i = s; i <= e; ++i) {
+//           for (int j = 0; j < utterances_[location.problem]->sequence_points(i); ++j) {
+//             trial += dist(possible_center, utterances_[location.problem]->sequence(i, j));
+//           }
+//         }
+//       }
+//       if (trial < best) {
+//         closest = possible_center;
+//         best = trial;
+//       }
+//     }
+//     total += best;
+//     (*centroids)[p] = closest;
+    
+//     // for (int i = 0; i < type_occurence_size(p); ++i) {
+//     //   StateLocation location = type_occurence(p, i);
+//     //   int s,e;
+//     //   bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
+//       // for (int i = s; i <= e; ++i) {
+//       //   double trial = dist(utterances_[location.problem]->sequence(i), centroid) ;
+//       //   if (trial < best) {
+//       //     closest = utterances_[location.problem]->sequence(i);
+//       //     best_hidden = i;
+//       //     best = trial;
+//       //   }
+//       // }
+//       // for () {
+
+//       // }
+//       //}
+//     // for (int i = 0; i < type_occurence_size(p); ++i) {
+//     //   StateLocation location = type_occurence(p, i);
+//     //   int s, e;
+//     //   bad_speech_solution.alignment(location.problem).StateAlign(location.state, &s, &e);
+//     //   for (int i = s; i <= e; ++i) {
+//     //     for (int j = 0; j < utterances_[location.problem]->sequence_points(i); ++j) {
+//     //       total += dist(utterances_[location.problem]->sequence(i, j), closest);
+//     //     }
+//     //     cerr << total << endl;
+//     //   }
+//     // }
+//   }
+
+//   return total;
+// }
 
 double SpeechProblemSet::MaximizeMediansHidden(const SpeechSolution &bad_speech_solution,
                                                vector<DataPoint> *centroids) const {
@@ -317,8 +390,10 @@ SpeechSolution *SpeechProblemSet::ApproxMaximizeMedians(
 
       // Construct the query point for the group.
       for (int i = s; i <= e; ++i) {
-        query += utterances_[location.problem]->sequence(i);
-        query_points++;
+        for (int j = 0; j < utterances_[location.problem]->sequence_points(i); ++j) {
+          query += utterances_[location.problem]->sequence(i, j);
+          query_points++;
+        }
       }
     }
     query = query / float(query_points);
@@ -368,8 +443,10 @@ SpeechSolution *SpeechProblemSet::ApproxMaximizeMedians(
         
         // Compute the cost to the closest;
         for (int point = s; point <= e; ++point) {
-          *score += dist((*centers_)[closest].point(), 
-                         utterances_[location.problem]->sequence(point));
+          for (int j = 0; j < utterances_[location.problem]->sequence_points(point); ++j) {
+            *score += dist((*centers_)[closest].point(), 
+                           utterances_[location.problem]->sequence(point, j));
+          }
         }
       }
     

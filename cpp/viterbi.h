@@ -9,17 +9,15 @@ double LogAdd(double a, double b);
 
 class Viterbi {
  public:
- Viterbi(int num_states, int num_timesteps, int num_centers, int min_width): 
-  num_states_(num_states), 
+ Viterbi(int num_states, int num_timesteps, int num_centers, int min_width)
+  : num_states_(num_states), 
     num_timesteps_(num_timesteps),
     num_centers_(num_centers), 
     min_width_(min_width), 
     use_sum_(false) {}
 
   // Do marginals instead of min-marginals.
-  void set_use_sum() {
-    use_sum_ = true;
-  }
+  void set_use_sum() { use_sum_ = true; }
 
   // Initialize the viterbi chart.
   void Initialize();
@@ -79,6 +77,10 @@ class Viterbi {
   int num_centers() { return num_centers_; } 
   int num_states() { return num_states_; } 
   int num_timesteps() { return num_timesteps_; } 
+
+  double backward_from_state(int step, int state, int center) const {
+    return backward_scores_[step][state][center];
+  }
 
  private:
   // Reset the chart without resizing.

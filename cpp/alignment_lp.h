@@ -13,9 +13,10 @@ class AlignmentLP {
     }
   } 
 
-  void ConstructLP();
+  void ConstructLP(SpeechSolution *proposal);
 
  private:
+
     const SpeechProblemSet &speech_problem_;
     ClusterSet cs_;
     vector<ThinDistanceHolder *> distances_;

@@ -45,7 +45,7 @@ void Viterbi::Initialize() {
     scores_.resize(time_size);  
     for (int i = 0; i < state_size; ++i) {
       forward_scores_[m][i].resize(center_size);
-      backward_scores_[m][i].resize(center_size);
+      backward_scores_[m][i].resize(center_size, INF);
       back_pointer_[m][i].resize(center_size);
       transition_score_[m][i].resize(center_size, 0.0);
     }
@@ -82,16 +82,14 @@ void Viterbi::ResetChart() {
 void Viterbi::ForwardScores() {
   // Initialize the forward chart. 
   for (int c = 0; c < num_centers_; ++c) {
-    forward_scores_[0][0][c] = 
-      lambda_[0][c] + scores_[0][c] + transition_score_[0][0][c];
+    forward_scores_[0][0][c] = lambda_[0][c] + scores_[0][c] + transition_score_[0][0][c];
   }
   
   for (int m = 1; m <= num_timesteps_; ++m) {
     for (int i = 0; i <= num_states_; ++i) {
       double back_score = INF;
-      if (num_states_ - i > num_timesteps_ - m)  {
-        continue;
-      }
+      if (num_states_ - i > num_timesteps_ - m) continue;
+
       int back_center = -1;
 
       // Find the best possble transition center.
@@ -119,7 +117,7 @@ void Viterbi::ForwardScores() {
 
         // Last time step must transition to final state.
         if (m == num_timesteps_) {
-          if (c == 0 && i == num_states_ ) {
+          if (c == 0 && i == num_states_) {
             w = 0.0;
           } else {
             w = INF;
@@ -134,9 +132,7 @@ void Viterbi::ForwardScores() {
         }
         double stay_score = w + forward_scores_[m - 1][i][c];
         double pen = 0.0;
-        if (i < num_states_) {
-          pen = lambda_[i][c];
-        }
+        if (i < num_states_) pen = lambda_[i][c];
 
         // Add the transition scores.
         double switch_score;

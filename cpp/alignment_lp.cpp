@@ -3,11 +3,12 @@
 
 #define VAR_TYPE GRB_CONTINUOUS
 
-void AlignmentLP::ConstructLP() {
+void AlignmentLP::ConstructLP(SpeechSolution *proposal) {
 
   try{
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
+  model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 
   // Create all the variables.
   s.resize(cs_.problems_size());
@@ -164,6 +165,13 @@ void AlignmentLP::ConstructLP() {
   for (int u = 0; u < cs_.problems_size(); ++u) {
     const ClusterProblem &problem = cs_.problem(u);
     for (int n = 0; n < problem.num_states; ++n) {
+      GRBLinExpr sum;
+      for (int o = 0; o < cs_.num_hidden(0); ++o) {
+        sum += t[u][n][o];
+      }
+      model.addConstr(sum == 1);
+    }
+    for (int n = 0; n < problem.num_states; ++n) {
       int l = problem.MapState(n);
       for (int o = 0; o < cs_.num_hidden(0); ++o) {
         model.addConstr(r[l][o] == t[u][n][o]);
@@ -178,28 +186,29 @@ void AlignmentLP::ConstructLP() {
   }
   cerr << "Done Constraint 3" << endl;
   
-
-  for (int u = 0; u < cs_.problems_size(); ++u) {
-    const ClusterProblem &problem = cs_.problem(u);
-    int M = problem.num_steps;
-    int N = problem.num_states;
-    for (int m = 0; m < M; ++m) {
-      for (uint l = 0; l < r.size(); ++l) {
-        vector <int> locations;
-        for (int n = 0; n < N; ++n) {
-          if ((int)l == problem.MapState(n)) {
-            locations.push_back(n);
+  if (true)  {
+    for (int u = 0; u < cs_.problems_size(); ++u) {
+      const ClusterProblem &problem = cs_.problem(u);
+      int M = problem.num_steps;
+      int N = problem.num_states;
+      for (int m = 0; m < M; ++m) {
+        for (uint l = 0; l < r.size(); ++l) {
+          vector <int> locations;
+          for (int n = 0; n < N; ++n) {
+            if ((int)l == problem.MapState(n)) {
+              locations.push_back(n);
+            }
           }
-        }
 
-        for (int o = 0; o < cs_.num_hidden(0); ++o) {
-          GRBLinExpr sum;
-          for (uint occ_index = 0; occ_index < locations.size(); ++occ_index) {
-            int n = locations[occ_index];
-            sum += s[u][m][n][o][0] + s[u][m][n][o][1] + s[u][m][n][o][2];
+          for (int o = 0; o < cs_.num_hidden(0); ++o) {
+            GRBLinExpr sum;
+            for (uint occ_index = 0; occ_index < locations.size(); ++occ_index) {
+              int n = locations[occ_index];
+              sum += s[u][m][n][o][0] + s[u][m][n][o][1] + s[u][m][n][o][2];
+            }
+            //model.addConstr(position_var[u][m][l][o] == sum);
+            model.addConstr(sum <= r[l][o]);
           }
-          //model.addConstr(position_var[u][m][l][o] == sum);
-          model.addConstr(sum <= r[l][o]);
         }
       }
     }
@@ -224,7 +233,13 @@ void AlignmentLP::ConstructLP() {
 
   vector<double> costs;
   for (uint u = 0; u < s.size(); ++u) {
+    SpeechAlignment *align = proposal->mutable_alignment(u);
     const ClusterProblem &problem = cs_.problem(u);
+    vector<int> *state_hidden = align->mutable_hidden_alignment();
+    vector<int> *state_align = align->mutable_alignment();
+    state_hidden->resize(problem.num_steps);
+    state_align->resize(problem.num_steps);
+    
     int M = problem.num_steps;
     int N = 0;
     for (int m = 0; m < M; ++m) {
@@ -234,6 +249,8 @@ void AlignmentLP::ConstructLP() {
         for (uint o = 0; o < s[u][m][n].size(); ++o) {
           for (uint f = 0; f <= 2; ++f) {
             if (s[u][m][n][o][f].get(GRB_DoubleAttr_X) != 0) {
+              (*state_hidden)[m] = o;
+              (*state_align)[m] = problem.MapState(n);
               string position;
               if (f == 0) {
                 position = "I";
@@ -242,9 +259,12 @@ void AlignmentLP::ConstructLP() {
               } else { 
                 position = "O";
               }
-              cerr << "s " << m << " " << n << " " << o << " " << position << " " <<
-                s[u][m][n][o][f].get(GRB_DoubleAttr_X) << " " << s[u][m][n][o][f].get(GRB_DoubleAttr_Obj) << " " << problem.MapState(n) << endl;
-              costs[n] += s[u][m][n][o][f].get(GRB_DoubleAttr_X) * s[u][m][n][o][f].get(GRB_DoubleAttr_Obj);
+              cerr << "s " << m << " " << n << " " << o << " " << position << " "
+                   << s[u][m][n][o][f].get(GRB_DoubleAttr_X) 
+                   << " " << s[u][m][n][o][f].get(GRB_DoubleAttr_Obj) 
+                   << " " << problem.MapState(n) << endl;
+              costs[n] += s[u][m][n][o][f].get(GRB_DoubleAttr_X) 
+                * s[u][m][n][o][f].get(GRB_DoubleAttr_Obj);
             }
           }
         }
@@ -263,6 +283,15 @@ void AlignmentLP::ConstructLP() {
           cerr << "t " <<  n << " " << o << " " <<
             t[u][n][o].get(GRB_DoubleAttr_X) << endl;
         }
+      }
+    }
+  }
+
+  for (uint l = 0; l < r.size(); ++l) {
+    for (uint o = 0; o < r[l].size(); ++o) {
+      if (r[l][o].get(GRB_DoubleAttr_X) != 0) {
+        cerr << "r " << l << " " << o << " " <<
+          r[l][o].get(GRB_DoubleAttr_X) << endl;
       }
     }
   }

@@ -96,3 +96,6 @@ int ClusterProblem::hidden_for_type(int type, int hidden_index) const {
 }
 
 
+int ClusterProblem::num_types() const {
+  return cluster_set_->num_types();
+}

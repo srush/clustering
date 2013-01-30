@@ -6,6 +6,7 @@
 
 #include "data_point.h"
 #include "build/speech.pb.h"
+#include "distances.h"
 using namespace std;
 
 DataPoint *DataPointFromProtobuf(const speech::Vector &vector);
@@ -65,19 +66,38 @@ class Utterance {
     return phoneme_set_.phoneme(phones_[phone_id]);
   } 
 
-
-  int sequence_size() const {
-    return sequence_.size();
-  }
+  int sequence_size() const { return sequence_.size(); }
   
-  const DataPoint &sequence(int sequence_id) const {
-    assert(sequence_id < sequence_size());
-    return *sequence_[sequence_id];
+  const DataPoint &sequence(int sequence_id, int point) const {
+    //assert(sequence_id < sequence_size());
+    return *sequence_[sequence_id][point];
   } 
+
+  int sequence_points(int sequence_id) const {
+    return sequence_[sequence_id].size();
+  }
+
+  double BestSequenceScore(int start, int end) const {
+    DataPoint cum = sequence(start, 0);
+    double score = 0.0;
+    for (int t = start; t < end; ++t) {
+      for (int j = 0; j < sequence_points(t); ++j) {
+        cum += sequence(t, j);
+      }
+    }
+    cum -= sequence(start, 0);
+    DataPoint centroid = cum / (end - start);
+    for (int t = start; t < end; ++t) {
+      for (int j = 0; j < sequence_points(t); ++j) {
+        score += dist(centroid, sequence(t, j));
+      }
+    }
+    return score;
+  }
 
   // The longest length possible for phones.
   const int max_phone_length() const {
-    return 15;
+    return 45;
   }
 
   const PhonemeSet &phoneme_set() const { return phoneme_set_; }
@@ -91,11 +111,25 @@ class Utterance {
   // Read the utterance from a protobuf.
   static Utterance *FromProtobuf(const PhonemeSet &phoneme_set,
                                  const speech::Utterance &utterance);
+  void ToProtobuf(speech::Utterance *utterance);
+
 
   // Score how close the current alignment is the correct alignment.
   int ScoreAlignment(const vector<int> &alignment) const;
 
   vector<int> get_gold() const { return correct_divisions_;} 
+
+  void set_sequence(const vector<vector<const DataPoint *> > &sequence) {
+    sequence_ = sequence;
+  }
+
+ Utterance(const Utterance & utt) 
+   : phoneme_set_(utt.phoneme_set_),
+    sentence_(utt.sentence_),
+    num_features_(utt.num_features_),
+    phones_(utt.phones_),
+    sequence_(utt.sequence_),
+    correct_divisions_(utt.correct_divisions_) {} 
 
  private:
   // The set of possble phonemes.
@@ -111,7 +145,7 @@ class Utterance {
   vector<int> phones_;
 
   // The data time steps.
-  vector<DataPoint *> sequence_;
+  vector<vector<const DataPoint *> > sequence_;
 
   // The gold split of the phonemes.
   vector<int> correct_divisions_;

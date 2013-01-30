@@ -7,6 +7,7 @@
 #include "hop_solver.h"
 #include "recenter_solver.h"
 #include "hmm_viterbi_solver.h"
+#include "hmm_astar_solver.h"
 #include "subgrad.h"
 #include "speech_problem.h"
 #include "hidden_kmedian_solver.h"
@@ -47,7 +48,8 @@ class SpeechSubgradient {//: public SubgradProblem {
                    const Reparameterization &augment,
                    double rate);
 
-  double MPLPSubgradient(double rate);
+  double MPLPSubgradient(double rate, SpeechSolution *solution);
+  void LocalSearch(SpeechSolution *dual_solution);
 
   // Run one round of coordinate descent.
   void MPLPDescentRound(SpeechSolution *solution);  
@@ -56,6 +58,7 @@ class SpeechSubgradient {//: public SubgradProblem {
   double ComputeCompleteDual(SpeechSolution *solution);
 
 
+  void MPLPRunSubgrad(int round);
   double ComputeDualSegment(SpeechSolution *solution);
   double ComputeDualRecenter(SpeechSolution *solution);
   void CheckKMedians(int type);
@@ -71,6 +74,7 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // The decomposition of the hmm part of the problem.
   vector<HMMViterbiSolver *> hmm_solvers_;
+  vector<HMMAStarSolver *> hmm_astar_solvers_;
 
   // The decomposition of the hmm part of the problem.
   HiddenSolver *hidden_solver_;

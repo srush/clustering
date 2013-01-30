@@ -99,7 +99,7 @@ double SpeechKMeans::Expectation(int utterance_index,
   Viterbi viterbi(cluster_problem.num_states,
                   cluster_problem.num_steps, 
                   cluster_problems_.num_modes(), 
-                  3);
+                  1);
   viterbi.Initialize();
 
 
@@ -116,8 +116,10 @@ double SpeechKMeans::Expectation(int utterance_index,
       // }
       const DataPoint &center = centers_[mode][cluster_problem.MapState(i)];
       for (int s = 0; s < cluster_problem.num_steps; ++s) {
-        double score = dist(center,
-                            utterance.sequence(s));
+        double score = 0.0;
+        for (int j = 0; j < utterance.sequence_points(s); ++j) {
+          score += dist(center, utterance.sequence(s, j));
+        }
         viterbi.set_transition_score(s, i, mode, score);
       }
     }
@@ -396,7 +398,7 @@ double SpeechKMeans::UnsupExpectation(int utterance_index,
     const DataPoint &center = centers_[0][type];
     for (int s = 0; s < cluster_problem.num_steps; ++s) {
       double score = dist(center,
-                          utterance.sequence(s));
+                          utterance.sequence(s, 0));
       for (int i = 0; i < cluster_problem.num_states; ++i) {
         viterbi.set_transition_score(s, i, type, score);
       }
@@ -444,7 +446,7 @@ double SpeechKMeans::GMMExpectation(int utterance_index,
       const DataPoint &center = centers_[mode][cluster_problem.MapState(i)];
       for (int s = 0; s < cluster_problem.num_steps; ++s) {
         double score = dist(center,
-                            utterance.sequence(s));
+                            utterance.sequence(s, 0));
         viterbi.set_transition_score(s, i, mode, score);
       }
     }
@@ -470,7 +472,7 @@ double SpeechKMeans::GMMExpectation(int utterance_index,
         
         if (p > 1.0) p = 1.0;
         //if (p > 1e-4) {
-        estimators[mode][type] += p * utterance.sequence(s);
+        estimators[mode][type] += p * utterance.sequence(s, 0);
         counts[mode][type] += p;
         //}
       }

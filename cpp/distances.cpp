@@ -1,14 +1,31 @@
 #include "distances.h"
 
-void ThinDistanceHolder::Initialize() {
-  int n = time_steps_.size();
+// void ThinDistanceHolder::Initialize(const vector<Center> &center_set,
+//                                     const vector<const DataPoint *> &time_steps) {
+//   int n = time_steps.size();
+
+//   distance_.resize(n);
+//   for (int s = 0; s < n; ++s) {
+//     distance_[s].resize(center_set.size());
+//     for (uint c = 0; c < center_set.size(); ++c) {
+//       distance_[s][c] =
+//         dist(*time_steps[s], center_set[c].point());
+//     }
+//   }
+// }
+
+void ThinDistanceHolder::Initialize(const vector<Center> &center_set,
+                                    const vector<vector<const DataPoint *> > &time_steps) {
+  int n = time_steps.size();
 
   distance_.resize(n);
   for (int s = 0; s < n; ++s) {
-    distance_[s].resize(center_set_.size());
-    for (uint c = 0; c < center_set_.size(); ++c) {
-      distance_[s][c] =
-        dist(*time_steps_[s], center_set_[c].point());
+    distance_[s].resize(center_set.size(), 0.0);
+    for (uint c = 0; c < center_set.size(); ++c) {
+      for (uint i = 0; i < time_steps[s].size(); ++i) {
+        distance_[s][c] +=
+          dist(*time_steps[s][i], center_set[c].point());
+      }
     }
   }
 }
@@ -135,9 +152,9 @@ void DistanceHolder::ComputeLocalDistances() {
 }
 
 double dist(const DataPoint &a, const DataPoint &b) {
-  // double d = norm_2(a - b);
-  // return d * d;
-  return norm_1(a - b);
+  double d = norm_2(a - b);
+  return d * d;
+  //return norm_1(a - b);
 }
 
 

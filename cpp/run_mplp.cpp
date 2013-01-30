@@ -2,6 +2,7 @@
 #include "speech_problem.h"
 #include "speech_subgrad.h"
 #include "subgrad.h"
+#include "segmenter.h"
 
 #include "alignment_lp.h"
 
@@ -85,7 +86,7 @@ int main(int argc, char **argv) {
       if (FLAGS_pc_unsupervised) { 
         kmeans.set_use_unsup();
       }
-      kmeans.Run(10);
+      kmeans.Run(100);
       
       stringstream buf;
       if (FLAGS_starting_model == "") {
@@ -104,6 +105,20 @@ int main(int argc, char **argv) {
       sol.SerializeToOstream(&output);
       output.close();
     }
+  } else if (FLAGS_algorithm == "prune") {
+    Segmenter segmenter;
+    fstream output("/tmp/utterances", ios::out | ios::binary);
+    speech::UtteranceSet all_utt;
+    for (int i = 0; i < speech_problems->utterance_size(); ++i) {
+      cerr << "Running " << endl;
+      Utterance *utterance = segmenter.Run(speech_problems->MakeClusterSet().problem(i), 
+                                           speech_problems->utterance(i));
+      speech::Utterance *utterance_buf = all_utt.add_utterances();
+      utterance->ToProtobuf(utterance_buf);     
+      delete utterance;
+    }
+    all_utt.SerializeToOstream(&output);
+    output.close();
   } else if (FLAGS_algorithm == "lr") {
     SpeechSubgradient *speech_subgrad = new SpeechSubgradient(*speech_problems);
     SpeechKMeans kmeans(*speech_problems);
@@ -131,6 +146,10 @@ int main(int argc, char **argv) {
     }
   } else if (FLAGS_algorithm == "lp") {
     AlignmentLP alignment_lp(*speech_problems);
-    alignment_lp.ConstructLP();
+    SpeechSolution solution(cluster_problems);
+    alignment_lp.ConstructLP(&solution);
+    vector<DataPoint > centroids;
+    double score = speech_problems->MaximizeMedians(solution, &centroids);
+    cerr << score << endl;
   }
 };

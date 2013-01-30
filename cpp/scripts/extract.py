@@ -27,12 +27,12 @@ def load_timit(path):
 class FeatureExtractor:
   def __init__(self):
     fp = FeaturePlan(sample_rate=16000)
-    # fp.addFeature('mfcc: MFCC blockSize=160 stepSize=80')
-    # fp.addFeature('mfcc_d1: MFCC blockSize=160 stepSize=80 > Derivate DOrder=1')
-    # fp.addFeature('mfcc_d2: MFCC blockSize=160 stepSize=80 > Derivate DOrder=2')
-    fp.addFeature('mfcc: MFCC blockSize=512 stepSize=512')
-    fp.addFeature('mfcc_d1: MFCC blockSize=512 stepSize=512 > Derivate DOrder=1')
-    fp.addFeature('mfcc_d2: MFCC blockSize=512 stepSize=512 > Derivate DOrder=2')
+    fp.addFeature('mfcc: MFCC blockSize=160 stepSize=80')
+    fp.addFeature('mfcc_d1: MFCC blockSize=160 stepSize=80 > Derivate DOrder=1')
+    fp.addFeature('mfcc_d2: MFCC blockSize=160 stepSize=80 > Derivate DOrder=2')
+    # fp.addFeature('mfcc: MFCC blockSize=512 stepSize=512')
+    # fp.addFeature('mfcc_d1: MFCC blockSize=512 stepSize=512 > Derivate DOrder=1')
+    # fp.addFeature('mfcc_d2: MFCC blockSize=512 stepSize=512 > Derivate DOrder=2')
 
     df = fp.getDataFlow()
 
@@ -155,6 +155,7 @@ class SpeechProblem:
       phoneme = self.phoneme_set.phonemes.add()
       phoneme.id = i
       phoneme.name = p
+      print phoneme.name
       self.phoneme_map[p] = i
 
   # Given all available feature vectors, extract possible centers.
@@ -216,7 +217,7 @@ def main(argv):
     utterance_names = load_brugnara_files(timit)[:10]
   elif FLAGS.data_set == "one":
     utterance_names = load_brugnara_files(timit)[:1]
-
+  print utterance_names
   speech_problem = SpeechProblem(timit, FLAGS.output_name)
   speech_problem.extract_phonemes()
   for utterance_file in utterance_names:

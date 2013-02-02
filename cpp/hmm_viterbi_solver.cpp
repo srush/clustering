@@ -67,8 +67,10 @@ double HMMViterbiSolver::MaxMarginals(vector<vector<double> > *mu,
   //cerr << endl;
 
   start = clock();
-  viterbi->BackwardScores();
+  double back = viterbi->BackwardScores();
   end = clock();
+  cerr << back << " " << score << endl;
+  //assert(back == score);
   cerr << "TIME: Backward time " << end - start << endl;
 
 

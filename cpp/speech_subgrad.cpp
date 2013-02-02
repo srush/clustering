@@ -32,6 +32,7 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems)
   delta_hmm_ = cluster_problems_.CreateReparameterization();
   delta_hidden_ = cluster_problems_.CreateReparameterization();  
   best_primal_value_ = INF;
+  best_dual_value_ = -INF;
 }
 
 void SpeechSubgradient::SetMPLPUpdateParams() {
@@ -53,7 +54,6 @@ void SpeechSubgradient::SetNaturalParams() {
 double SpeechSubgradient::Primal(SpeechSolution *dual_proposal, 
                                  int round, 
                                  vector<DataPoint > *centroids) {
-
   double max_medians = problems_.MaximizeMedians(*dual_proposal, centroids);
   for (int type = 0; type < problems_.num_types(); ++type) {
     dual_proposal->set_type_to_special(type, 0, (*centroids)[type]);
@@ -90,7 +90,8 @@ double SpeechSubgradient::DualProposal(SpeechSolution *solution) const {
 // }
 
 double SpeechSubgradient::HiddenDualProposal(SpeechSolution *solution) {
-  double dual = hidden_solver_->Solve();  
+  vector<int> default_centers;
+  double dual = hidden_solver_->Solve(default_centers);  
   for (int type = 0; type < problems_.num_types(); ++type) {
     for (int mode = 0; mode < cluster_problems_.num_modes(); ++mode) {
       solution->set_type_to_hidden(type, mode, 
@@ -177,8 +178,6 @@ double SpeechSubgradient::MPLPSubgradient(double rate,
       hidden_reparameterization_->set(loc, h, delta_hmm_->get(loc, h));
     }
   }
-
-  SetMPLPUpdateParams();
   delete hmm_diff;
   delete cluster_diff;
   return dual;
@@ -253,7 +252,8 @@ double SpeechSubgradient::MPLPClusterRound() {
 
   if (CHECK) {
     SetNaturalParams();
-    double temp = hidden_solver_->Solve();
+    vector<int> default_centers;
+    double temp = hidden_solver_->Solve(default_centers);
     cerr << "temp test: " << temp << endl; 
     assert(fabs(temp) < 1e-4);
     SetMPLPUpdateParams();
@@ -321,19 +321,25 @@ void SpeechSubgradient::MPLPRunSubgrad(int round) {
     
     SetNaturalParams();
     double dual_value = ComputeCompleteDual(dual_solution);
-    cerr << "SCORE: Subgrad dual is " << i << " " << dual << " " << dual_value << " " 
-         << centroids.size() << endl;
+    cerr << "SCORE: Subgrad dual is " << i << " " << dual << " " << dual_value << endl;
     double primal_value = Primal(dual_solution, i, &centroids);
     cerr << "SCORE: Subgrad primal is " << " " << primal_value << endl;
     if (primal_value < best_primal_value_) {
       best_primal_value_ = primal_value;
     } 
-    if ((round + 1) % 10 ==  0) {
-       LocalSearch(dual_solution);
-    }
+    if (dual > best_dual_value_) {
+      best_dual_value_ = dual;
+    } 
+
+    //if ((round + 1) % 10 ==  0) {
+    //LocalSearch(dual_solution);
+    //}
     cerr << "GAP: " << abs(best_primal_value_ - dual_value) << " " <<  best_primal_value_ << " " << dual_value << endl;
     cerr << "SCORE: Final primal value " 
          << best_primal_value_ << endl;
+
+    cerr << "SCORE: Final dual value " 
+         << best_dual_value_ << endl;
 
     delete dual_solution;
   }
@@ -364,7 +370,7 @@ void SpeechSubgradient::LocalSearch(SpeechSolution *dual_solution) {
 
 // Runs a round of MPLP. 
 void SpeechSubgradient::MPLPRound(int round) {
-  if (round > -1) {
+  if (round > 200) {
     MPLPRunSubgrad(round);
     return;
   }
@@ -384,13 +390,14 @@ void SpeechSubgradient::MPLPRound(int round) {
   vector<DataPoint> centroids;
   double primal_value = Primal(dual_solution, round, &centroids);
   if (primal_value < best_primal_value_) best_primal_value_ = primal_value;
+  if (dual_value > best_dual_value_) best_dual_value_ = dual_value;
   if ((round + 1) % 25 == 0) {
     LocalSearch(dual_solution);
   }
   // Log the dual and primal values.
   cerr << "SCORE: Final primal value " 
        << best_primal_value_ << endl;
-  cerr << "SCORE: Final Dual value: " << dual_value << endl;
+  cerr << "SCORE: Final Dual value: " << best_dual_value_ << endl;
 
   cerr << "GAP: " << round << " " << abs(best_primal_value_ - dual_value) << " " <<  best_primal_value_ << " " << dual_value;
 

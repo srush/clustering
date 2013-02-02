@@ -137,7 +137,7 @@ void Viterbi::ForwardScores() {
         // Add the transition scores.
         double switch_score;
         if (m - min_width_ >= 0 && 
-            m - (min_width_ * (i + 1)) >= 0 && 
+            m - (min_width_ * i) >= 0 && 
             i != num_states_) {
           for (int pre = 1; pre < min_width_; ++pre) {
             pen += scores_[m - pre][c] + transition_score_[m - pre][i][c];
@@ -162,10 +162,10 @@ void Viterbi::ForwardScores() {
         }
       }
     }
-  } 
+  }
 }
 
-void Viterbi::BackwardScores() {
+double Viterbi::BackwardScores() {
   for (int m = num_timesteps_ - 1; m >= 0 ; --m) {
     for (int i = num_states_ - 1; i >= 0 ; --i) {
       if (i > m) {
@@ -204,6 +204,7 @@ void Viterbi::BackwardScores() {
         }
         double switch_score = b + cost;
         if (!use_sum_) {
+
           if (stay_score < switch_score) {
             backward_scores_[m][i][c] = stay_score;
           } else {
@@ -216,11 +217,12 @@ void Viterbi::BackwardScores() {
     }
   }
   
-  double best;
+  double best = -1;
   if (!use_sum_) {
     best = INF;
     for (int c2 = 0; c2 < num_centers_; c2++) {
-      best = min(best, backward_scores_[0][0][c2] + lambda(0, c2));
+      double trial = backward_scores_[0][0][c2] + lambda(0, c2) + transition_score_[0][0][c2];
+      best = min(best, trial);
     }
     assert(fabs(best - forward_scores_[num_timesteps_][num_states_][0]) < 1e-4);
   } else {
@@ -229,6 +231,7 @@ void Viterbi::BackwardScores() {
 //       best += backward_scores_[0][0][c2] + lambda(0, c2);
 //     }
   }
+  return best;
 
 }
 
@@ -329,9 +332,10 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
     for (int i = 0; i < num_states_; ++i) {
       if (i > m) continue;
       for (int c = 0; c < num_centers_; ++c) {
+
         double trial1 = forward_scores_[m][i][c] + backward_scores_[m + 1][i][c];
         double trial2;
-        if (m - (min_width_ * (i + 1)) >= 0) {
+        if (m - (min_width_ * (i)) >= 0) {
           trial2 = forward_scores_[m][i][c] + best_back[m + 1][i + 1];
         } else {
           // Not a valid transition.
@@ -347,7 +351,7 @@ void Viterbi::MinMarginals(vector<vector<double> > *min_marginals) {
       }
     }
   }
-  for (int i = 0; i < num_states_; ++i) {
+  for (int i = num_states_ - 1; i >= 0; --i) {
     double best = INF;
     for (int c = 0; c < num_centers_; ++c) {
       assert((*min_marginals)[i][c] - best_score > -1e-4);

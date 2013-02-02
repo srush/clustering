@@ -102,6 +102,7 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // Best primal value seen so far.
   double best_primal_value_;
+  double best_dual_value_;
 };
 
 #endif

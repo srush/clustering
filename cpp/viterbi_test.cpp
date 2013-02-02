@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "viterbi.h"
+#include "math.h"
 #define INF 1e10 
 
 class ViterbiTest : public testing::Test {

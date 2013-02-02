@@ -24,7 +24,7 @@ class Viterbi {
 
   // Run the Viterbi algorithm.
   void ForwardScores();
-  void BackwardScores();
+  double BackwardScores();
   
   // Compute the min-marginals of the chart. States x centers.
   void MinMarginals(vector<vector<double> > *min_marginals);
@@ -37,7 +37,15 @@ class Viterbi {
 
   // Get the best score through the chart. 
   double GetBestScore() {
-    return forward_scores_[num_timesteps_][num_states_][0];
+    int n = forward_scores_[num_timesteps_][num_states_].size();
+    double m = 1e6;
+    for (int i = 0; i < n; ++i) {
+      double trial = forward_scores_[num_timesteps_][num_states_][i];
+      if (trial < m) {
+        m = trial;
+      }
+    }
+    return m;
   }
 
   // Score a state ranging from start to end inclusive. 

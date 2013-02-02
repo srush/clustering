@@ -12,7 +12,7 @@ env.Append(CPPPATH =('.', "/home/alexanderrush/libs/gurobi510/linux64/include",
 #            CPPFLAGS=['-Werror','-Wall','-g', '-fstack-protector-all'])
 
 env.Append(
-           CPPFLAGS=['-Werror','-Wall','-O2',  '-DNDEBUG'])
+           CPPFLAGS=['-Werror', '-Wall', '-O2', '-DNDEBUG'])
 
 
 #env['BUILDERS']['Protoc'] = Builder(action = ProtocBuilder)

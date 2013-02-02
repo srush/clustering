@@ -21,8 +21,9 @@ HiddenSolver::HiddenSolver(const ClusterSet &cs)
 
 // Compute max-marginals.
 double HiddenSolver::MaxMarginals(Reparameterization *mu) {  
+  vector<int> blank;
   clock_t start = clock();
-  double score = Solve();
+  double score = Solve(blank);
   clock_t end = clock();
   cerr << "Solving clustering " << end - start << endl;
   start = clock();
@@ -71,7 +72,7 @@ double HiddenSolver::MaxMarginals(Reparameterization *mu) {
   return score;
 }
 
-double HiddenSolver::Solve() {
+double HiddenSolver::Solve(const vector<int> &default_centers) {
   double total_score = 0.0;
   for (int mode = 0; mode < num_modes_; ++mode) {
     for (int t = 0; t < cs_.num_types(); ++t) {
@@ -87,6 +88,12 @@ double HiddenSolver::Solve() {
         if (seen) continue;
         double score = hidden_costs_[t][q];
         if (score < best_score_[mode][t]) {
+          best_score_[mode][t] = score;
+          best_hidden_[mode][t] = q;
+        }
+        if (!default_centers.empty() &&
+            score <= best_score_[mode][t] && 
+            default_centers[t] == q) {
           best_score_[mode][t] = score;
           best_hidden_[mode][t] = q;
         }

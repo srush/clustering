@@ -13,7 +13,7 @@ class HiddenSolver {
 
   // Find the best hidden for each type. Works dynamically, so takes
   // into account updates.
-  double Solve(); 
+  double Solve(const vector<int> &default_center); 
   
   /* void Update(int type, int hidden, double score) { */
 

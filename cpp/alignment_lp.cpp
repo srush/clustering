@@ -8,7 +8,7 @@ void AlignmentLP::ConstructLP(SpeechSolution *proposal) {
   try{
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
-  model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
+  //model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);
 
   // Create all the variables.
   s.resize(cs_.problems_size());

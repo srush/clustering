@@ -16,14 +16,14 @@ class HMMAStarSolver {
 
   // Return the min score through the path and 
   // an alignment of timesteps to states.  
-  double Solve(SpeechAlignment *alignment);
+  double Solve(SpeechAlignment *alignment, bool exact);
 
   void set_reparameterization(const vector<vector<double> > *reparameterization) {
     reparameterization_ = reparameterization;
   }
   
  private:
-  AStarMemory *InitializeAStar();
+  Search<HMMState, Expander> *InitializeAStar(bool exact);
 
   const ClusterProblem &cp_;
   

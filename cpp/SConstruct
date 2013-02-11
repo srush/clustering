@@ -1,4 +1,5 @@
 import os
+import local
 from protoc import *
 env = Environment()
 
@@ -60,7 +61,7 @@ cluster = env.Library('cluster',
                        "hmm_astar_solver.cpp", 
                        "speech_solution.cpp", "speech_subgrad.cpp", span, semi, proto, distance, viterbi],
                       
-LIBS = [span, semi, proto, distance, viterbi, "gurobi51", "gurobi_c++", "km"])
+LIBS = [span, semi, proto, distance, viterbi, local.gurobi_lib, "gurobi_c++", "km"])
 
 speech_solve = env.Library('speech_solve',
                            ["speech_problem.cpp", speech, distance, cluster, span, semi, viterbi],
@@ -68,7 +69,7 @@ speech_solve = env.Library('speech_solve',
 
 
 lp = env.Library('alignment_lp',
-                 ['alignment_lp.cpp'], LIBS =[speech_solve, "gurobi51", "gurobi_c++"])
+                 ['alignment_lp.cpp'], LIBS =[speech_solve, local.gurobi_lib, "gurobi_c++"])
 
 # env.Program('semi_test', 
 #             ['semimarkov_test.cpp', semi],
@@ -90,7 +91,7 @@ lp = env.Library('alignment_lp',
 
 env.Program('main_mplp', 
             ['run_mplp.cpp', distance, speech_solve, viterbi, lp, cluster],
-            LIBS =[ "protobuf", "pthread", "gurobi_c++", "gurobi51", "gflags", "km", distance, speech, 
+            LIBS =[ "protobuf", "pthread", "gurobi_c++", local.gurobi_lib,  "gflags", "km", distance, speech, 
                    speech_solve, cluster, span, semi, viterbi, lp])
 
 # env.Program('test_viterbi', 

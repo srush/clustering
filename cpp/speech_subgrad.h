@@ -50,6 +50,7 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   double MPLPSubgradient(double rate, SpeechSolution *solution);
   void LocalSearch(SpeechSolution *dual_solution);
+  void BeamSearch();
 
   // Run one round of coordinate descent.
   void MPLPDescentRound(SpeechSolution *solution);  

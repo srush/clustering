@@ -4,8 +4,7 @@
 #define VAR_TYPE GRB_CONTINUOUS
 
 void AlignmentLP::ConstructLP(SpeechSolution *proposal) {
-
-  try{
+  try {
   GRBEnv env = GRBEnv();
   GRBModel model = GRBModel(env);
   //model.set(GRB_IntAttr_ModelSense, GRB_MINIMIZE);

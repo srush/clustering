@@ -262,6 +262,20 @@ class Expander {
     return new Node<HMMState>(0, 0, state);
   }
 
+  int order(const Node<HMMState> &node) const {
+    return (cp_->num_steps + 1) * (node.state->state + 1)
+      + (node.state->time_step + 1);
+  }
+
+  int order_next_state(const Node<HMMState> &node) const {
+    return (cp_->num_steps + 1) * (node.state->state + 2)
+      + (node.state->time_step + 2);
+  }
+
+  int TotalOrder() const {
+    return (cp_->num_steps + 2) * (cp_->num_states + 2);
+  }
+
   bool is_final(const Node<HMMState> &start) const {
     //TODO
     return (start.state->state == cp_->num_states - 1) && 
@@ -269,7 +283,9 @@ class Expander {
   }
 
   void Expand(const Node<HMMState> &start, 
-              vector<Node<HMMState> > *children) const {
+              vector<Node<HMMState> > *children,
+              bool use_worst,
+              double worst) const {
     // Stay in the same state.
     if (start.state->time_step >= cp_->num_steps - 1) return;
     int new_timestep = start.state->time_step + 1;
@@ -320,13 +336,15 @@ class Expander {
 
       if (seen_before_[new_state]) {
         int center = new_dictionary->center(new_phoneme);
-        HMMState *state = 
-          new HMMState(new_dictionary, new_timestep, new_state, center);
         double heuristic = heuristic_->score(new_timestep, new_state, center);
         double score = start.score + 
           scorer_->score(new_timestep, new_state, center) + 
           scorer_->lambda(new_state, center);
-        children->push_back(Node<HMMState>(score, heuristic, state));    
+        if (!use_worst || heuristic + score < worst) {
+          HMMState *state = 
+            new HMMState(new_dictionary, new_timestep, new_state, center); 
+          children->push_back(Node<HMMState>(score, heuristic, state));    
+        }
       } else {
         for (int center = 0; center < cp_->num_hidden(new_phoneme); ++center) {
           // If it is seen again, need to remember state. 
@@ -335,9 +353,11 @@ class Expander {
           double score = start.score + 
             scorer_->score(new_timestep, new_state, center) + 
             scorer_->lambda(new_state, center); 
-          HMMState *hmm_state = 
-            new HMMState(new_dictionary, new_timestep, new_state, center);
-          children->push_back(Node<HMMState>(score, heuristic, hmm_state));
+          if (!use_worst || heuristic + score < worst) {
+            HMMState *hmm_state = 
+              new HMMState(new_dictionary, new_timestep, new_state, center);
+            children->push_back(Node<HMMState>(score, heuristic, hmm_state));
+          }
         }
       }
     }
@@ -364,5 +384,6 @@ class Expander {
 };
 
 typedef AStar<HMMState, Expander> AStarMemory;
+typedef BeamSearch<HMMState, Expander> BeamMemory;
 
 #endif

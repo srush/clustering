@@ -1,7 +1,7 @@
 #include "hmm_astar_solver.h"
 #include <time.h>
 
-AStarMemory *HMMAStarSolver::InitializeAStar() {
+Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
   // Compute Heuristic
   cerr << cp_.num_states << " " << cp_.num_steps << endl;
   Viterbi viterbi(cp_.num_states, 
@@ -46,27 +46,32 @@ AStarMemory *HMMAStarSolver::InitializeAStar() {
     }
   }
   
-  if (round_ % 10 == 0) {
+  //if (round_ % 3 == 1) {
   for (int t = 0; t < cp_.num_types(); ++t) {
-    if (conflicts_[t]) {
-      if (enforced_ >= 11) break;
-      if (!enforced_constraints_[t]) {
+    //if (conflicts_[t]) {
+      //if (enforced_ >= 11) break;
+      //if (!enforced_constraints_[t]) {
         enforced_constraints_[t] = true;
         enforced_++;
-        break;
-      }
-    }
+        ////break;
+        //}
+        //}
   }
-  }
+  
   round_++;
   Expander *expander = new Expander(scorer, heuristic, &cp_, enforced_constraints_);
-  AStarMemory *astar = new AStarMemory(expander);
-  return astar;
+  Search<HMMState, Expander> *search;
+  if (!exact) {
+    search = new BeamMemory(expander, 200);
+  } else {
+    search = new AStarMemory(expander);
+  }
+  return search;
 }
 
 
-double HMMAStarSolver::Solve(SpeechAlignment *alignment) {
-  AStarMemory *astar = InitializeAStar();
+double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact) {
+  Search<HMMState, Expander> *astar = InitializeAStar(exact);
 
   // Run the semi-markov model.
   HMMState state;

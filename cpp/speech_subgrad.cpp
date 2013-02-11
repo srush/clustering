@@ -72,7 +72,7 @@ double SpeechSubgradient::DualProposal(SpeechSolution *solution) const {
   double dual = 0.0;
   for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
     SpeechAlignment *alignment = solution->mutable_alignment(u);
-    dual += hmm_astar_solvers_[u]->Solve(alignment);
+    dual += hmm_astar_solvers_[u]->Solve(alignment, true);
   }
   return dual;
 }
@@ -334,7 +334,7 @@ void SpeechSubgradient::MPLPRunSubgrad(int round) {
     //if ((round + 1) % 10 ==  0) {
     //LocalSearch(dual_solution);
     //}
-    cerr << "GAP: " << abs(best_primal_value_ - best_dual_value_) << " " <<  best_primal_value_ << " " << best_dual_value_ << endl;
+    cerr << "GAP: " << best_primal_value_ - best_dual_value_ << " " <<  best_primal_value_ << " " << best_dual_value_ << endl;
     cerr << "SCORE: Final primal value " 
          << best_primal_value_ << endl;
 
@@ -343,6 +343,21 @@ void SpeechSubgradient::MPLPRunSubgrad(int round) {
 
     delete dual_solution;
   }
+}
+
+void SpeechSubgradient::BeamSearch() {
+  SpeechSolution solution(cluster_problems_);
+  double dual = 0.0;
+  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+    SpeechAlignment *alignment = solution.mutable_alignment(u);
+    dual += hmm_astar_solvers_[u]->Solve(alignment, false);
+  }
+  vector<DataPoint> centroids;
+  double primal_value = Primal(&solution, 1, &centroids);
+  cerr << "Beam " << primal_value << " " << dual << endl;
+  if (primal_value < best_primal_value_) {
+    best_primal_value_ = primal_value;
+  } 
 }
 
 void SpeechSubgradient::LocalSearch(SpeechSolution *dual_solution) {
@@ -368,9 +383,11 @@ void SpeechSubgradient::LocalSearch(SpeechSolution *dual_solution) {
   } 
 }
 
+
+
 // Runs a round of MPLP. 
 void SpeechSubgradient::MPLPRound(int round) {
-  if (round > 100) {
+  if (round > 200) {
     MPLPRunSubgrad(round);
     return;
   }
@@ -391,8 +408,11 @@ void SpeechSubgradient::MPLPRound(int round) {
   double primal_value = Primal(dual_solution, round, &centroids);
   if (primal_value < best_primal_value_) best_primal_value_ = primal_value;
   if (dual_value > best_dual_value_) best_dual_value_ = dual_value;
-  if ((round + 1) % 25 == 0) {
-    LocalSearch(dual_solution);
+  // if ((round + 1) % 25 == 0) {
+  //   LocalSearch(dual_solution);
+  // }
+  if (round > 100 && (round + 1) % 10 == 0) {
+    BeamSearch();
   }
   // Log the dual and primal values.
   cerr << "SCORE: Final primal value " 

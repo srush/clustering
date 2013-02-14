@@ -55,10 +55,13 @@ class DictTree {
 
   void show() const {
     const DictTree *cur = this;
+    int count = 0;
     while (cur->back_ != NULL) {
-      cerr << cur->phoneme_ << ":" << cur->center_ << ":" << cur->split_ << " " ;
+      cerr << cur->phoneme_ << ":" << cur->center_ << ":" << cur->split_ << ":" << count << " ";
       cur = cur->back_;
+      count++;
     }
+    cerr << endl;
   }
 
   int hash() const {
@@ -151,6 +154,7 @@ class HMMState {
   string to_string() {
     cerr << time_step << " " << state << " " << center << " ";
     dictionary->show();
+    cerr << endl;
     return "";
   }
 
@@ -172,11 +176,16 @@ class ThinState {
     center(_center) {}
 
   string to_string() {
-    cerr << center << " ";
+    cerr << center << " " << endl;
     dictionary->show();
+    
     return "";
   }
 
+  int hash(int centers) {
+    //cerr << centers * dictionary->hash() + center;
+    return centers * dictionary->hash() + center;
+  }
   const DictTree *dictionary;
   int center;
 };
@@ -413,15 +422,22 @@ class Merger : public BaseMerger<ThinState> {
     cp_(cp)
     {}
   
-  void MergeBeams(int time, int state, const Beam<ThinState> &one, 
-                  const Beam<ThinState> &two, 
+  void Initialize(Beam<ThinState> *start) const {
+    ThinState *state = new ThinState(new DictTree(), -1);
+    start->Add(Node<ThinState>(0, 0, state), 0);
+  }
+
+  void MergeBeams(int time, int state, 
+                  const Beam<ThinState> &last, 
+                  const Beam<ThinState> &cur, 
                   Beam<ThinState> * new_beam) const {
     
     int phoneme = cp_->MapState(state);
-    if (one.element(0).state->dictionary->center(phoneme) != -1) {
-      SimpleMerge(time, state, one, two, new_beam);
+    if (last.elements() == 0 ||
+        last.element(0).state->dictionary->center(phoneme) != -1) {
+      SimpleMerge(time, state, last, cur, new_beam);
     } else {
-      ComplexMerge(time, state, one, two, new_beam);
+      ComplexMerge(time, state, last, cur, new_beam);
     }
   }
 
@@ -431,8 +447,12 @@ class Merger : public BaseMerger<ThinState> {
   const ClusterProblem *cp_;
 
   struct Next {
+    Next(const Next &next) 
+    : stay(next.stay), go(next.go), score(next.score) {}
     Next(bool s, int g, double sc) 
-    : stay(s), go(g), score(sc) {} 
+    : stay(s), go(g), score(sc) {
+      assert(s || (g != -1));
+    } 
     bool stay;
     int go; 
     double score;
@@ -482,140 +502,229 @@ class Merger : public BaseMerger<ThinState> {
       double extra_score = scorer_->score(time, state, c) + 
         scorer_->lambda(state, c) + 
         heuristic_->score(time, state, c);
-      ordered_centers.push_back(pair<double, int>(extra_score, c));
+      ordered_centers[c] = pair<double, int>(extra_score, c);
     }
     sort(ordered_centers.begin(), ordered_centers.end());
+    //for (uint i = 0; i < ordered_centers.size(); ++i) {
+      //cerr << i << " " << ordered_centers[i].second << " " << ordered_centers[i].first << endl;
+    //} 
 
+    vector<pair<double, int> >ordered_cur(cur_beam.elements());
+    for (int i = 0; i < cur_beam.elements(); ++i) {
+      const Node<ThinState> &node =  cur_beam.element(i);
+      double total = total_stay(time, state, node);
+      ordered_cur[i] = pair<double, int>(total, i);
+    }
+    sort(ordered_cur.begin(), ordered_cur.end());
 
+    vector<pair<double, int> >ordered_last(last_beam.elements());
+    for (int i = 0; i < last_beam.elements(); ++i) {
+      const Node<ThinState> &node =  last_beam.element(i);
+      ordered_last[i] = pair<double, int>(node.score, i);
+    }
+    sort(ordered_last.begin(), ordered_last.end());
 
     // The current centers for nodes in last_berm
     vector<int> pointer_leave(1, 0);
     
 
-    // The current position for nodes in cur_beam.
+    // The current position for nodes in ordered_cur.
     int pointer_stay = 0;
 
     priority_queue<Next> queue;
 
     // Initialize cur beam.
     if (cur_beam.elements() > 0) {
-      double total = total_stay(time, state, cur_beam.element(0));
-      Next next(true, -1, total);
+      Next next(true, -1, ordered_cur[0].first);
       queue.push(next);
     }
 
     // Initialize last beam.
     if (last_beam.elements() > 0) {
       double total = 
-        total_switch(time, state, last_beam.element(0), 
+        total_switch(time, state, last_beam.element(ordered_last[0].second), 
                      ordered_centers[0].second);
       Next next(false, 0, total);
       queue.push(next);
     }
-       
-    while (!queue.empty() && new_beam->elements() < new_beam->k()) {
+    while (!queue.empty() && !new_beam->Finished()) {
       Next next = queue.top();
       queue.pop();
       if (next.stay) {
         // Add node from cur_beam.
         Node<ThinState> old_node = 
-          cur_beam.element(pointer_stay);
+          cur_beam.element(ordered_cur[pointer_stay].second);
         int center = old_node.state->center;
         double heu = heuristic_->score(time, state, center);
         double score = new_stay_score(time, state, old_node);
+        assert(score + heu == next.score);
         Node<ThinState> new_node(score, heu, old_node.state);
-        new_beam->Add(new_node);
+        new_beam->Add(new_node, old_node.state->hash(cp_->num_hidden(0)));
         pointer_stay++;
         if (pointer_stay < cur_beam.elements()) {
-          double total = 
-            total_stay(time, state, 
-                        cur_beam.element(pointer_stay));
-          Next next(true, -1, total);
-          queue.push(next);
+          /* double total =  */
+          /*   total_stay(time, state,  */
+          /*              cur_beam.element(ordered_cur[pointer_stay])); */
+          //cerr << "total " << total << endl;
+          Next new_next(true, -1, ordered_cur[pointer_stay].first);
+          queue.push(new_next);
         }
       } else {
         // Add node from last beam.
-        Node<ThinState> old_node = last_beam.element(next.go);
+        //cerr << "leave " << next.go << " " << ordered_last[next.go].second << " " << pointer_leave[next.go] << " " << ordered_centers[pointer_leave[next.go]].second << endl;
+        Node<ThinState> old_node = last_beam.element(ordered_last[next.go].second);
+ 
         int center = ordered_centers[pointer_leave[next.go]].second;
         double heu = heuristic_->score(time, state, center);
-        double score = old_node.score + 
-          scorer_->score(time, state, center);
+        double score = new_switch_score(time, state, old_node, center);
+        assert(score + heu == next.score);
         //todo
-        int old_phoneme = cp_->MapState(state - 1);
-        ThinState *new_state = 
-          new ThinState(
-                        old_node.state->dictionary->add(time, old_phoneme, 
-                                                        old_node.state->center, cp_->num_hidden(0), true), 
-                        center);
-        new_beam->Add(Node<ThinState>(score, heu, new_state));
-
+        if (state > 0) {
+          int old_phoneme = cp_->MapState(state - 1);
+          const DictTree *tree = 
+            old_node.state->dictionary->add(time,  
+                                           old_phoneme, 
+                                            old_node.state->center, 
+                                            cp_->num_hidden(0), true);
+          ThinState *new_state = new ThinState(tree, center);
+          new_beam->Add(Node<ThinState>(score, heu, new_state),
+                        new_state->hash(cp_->num_hidden(0)));
+        } else {
+          ThinState *new_state = 
+            new ThinState(old_node.state->dictionary,
+                          center);
+          new_beam->Add(Node<ThinState>(score, heu, new_state),
+                        new_state->hash(cp_->num_hidden(0)));
+        }
+        
         pointer_leave[next.go]++;
         if (pointer_leave[next.go] < (int)ordered_centers.size()) {
           double total = 
             total_switch(time, state, 
-                         last_beam.element(next.go), 
+                         last_beam.element(ordered_last[next.go].second), 
                          ordered_centers[pointer_leave[next.go]].second); 
-          Next next(false, next.go, total);
-          queue.push(next);
+          Next new_next(false, next.go, total);
+          queue.push(new_next);
         }
         
-        if (next.go + 1 == (int)pointer_leave.size() && 
+        
+        if (next.go + 1 >= (int)pointer_leave.size() && 
             next.go + 1 < last_beam.elements()) {
-          pointer_leave.resize(next.go + 1, 0);
+          pointer_leave.resize(next.go + 2, 0);
           double total = 
             total_switch(time, state, 
-                         last_beam.element(next.go + 1), 
+                         last_beam.element(ordered_last[next.go + 1].second),
                          ordered_centers[0].second); 
-          Next next(false, next.go + 1, total);
-          queue.push(next);
+          Next new_next(false, next.go + 1, total);
+          queue.push(new_next);
         } 
       } 
     } 
   }
 
+  struct Simple {
+    Simple(int _i, bool _stay, double _score)
+    : i(_i), stay(_stay), score(_score) {}
+    int i;     
+    bool stay;
+    double score; 
+    int operator<(const Simple &other) const {
+      return score < other.score;
+    }
+
+  };
+
   void SimpleMerge(int time, int state,
-                   const Beam<ThinState> &one, 
-                   const Beam<ThinState> &two, 
+                   const Beam<ThinState> &last_beam, 
+                   const Beam<ThinState> &cur_beam, 
                    Beam<ThinState> * new_beam) const {
-    int pointer1 = 0, pointer2 = 0;
-    const Node<ThinState> *node1, *node2;
-    do {
-      node1 = (pointer1 < one.elements()) ? (&one.element(pointer1)) : (NULL);
-      node2 = (pointer2 < two.elements()) ? (&two.element(pointer2)) : (NULL);
-      double score1 = INF;
-      double heuristic1 = INF;
-      int center;
-      if (node1 != NULL) {
+
+    vector<Simple> ordered;
+    for (int i = 0; i < last_beam.elements(); ++i) {
+      const Node<ThinState> &node = last_beam.element(i);
+      int phoneme = cp_->MapState(state);
+      int center = node.state->dictionary->center(phoneme);
+      double heuristic1 = heuristic_->score(time, state, center);
+      double score1 = new_switch_score(time, state, node, center);
+      ordered.push_back(Simple(i, false, score1 + heuristic1));
+    }
+    for (int i = 0; i < cur_beam.elements(); ++i) {
+      const Node<ThinState> &node =  cur_beam.element(i);
+      double score2 = new_stay_score(time, state, node);
+      double heuristic2 = heuristic(time, state, node);
+      ordered.push_back(Simple(i, true, score2 + heuristic2));
+    }
+    sort(ordered.begin(), ordered.end());
+
+    for (uint i = 0; i < ordered.size() && 
+           !new_beam->Finished(); ++i) {
+      const Simple &simple = ordered[i];
+      if (!simple.stay) {
+        const Node<ThinState> &node =  last_beam.element(simple.i);
+        int old_phoneme = cp_->MapState(state - 1);
 
         int phoneme = cp_->MapState(state);
-        center = node1->state->dictionary->center(phoneme);
-        heuristic1 = heuristic_->score(time, state, center);
-        score1 = new_switch_score(time, state, *node1, center);
-      }
-                                               
-      double score2 = INF;
-      double heuristic2 = INF;
-      if (node2 != NULL) {
-        score2 = new_stay_score(time, state, *node2);
-        heuristic2 = heuristic(time, state, *node2);
-      }
-      if (score1 + heuristic1 < score2 + heuristic2) {
-        // Extend node1.
-        int old_phoneme = cp_->MapState(state - 1);
+        int center = node.state->dictionary->center(phoneme);
+        double heuristic1 = heuristic_->score(time, state, center);
+        double score1 = new_switch_score(time, state, node, center);
+
         ThinState *new_state = 
-          new ThinState(
-                        node1->state->dictionary->add(time, old_phoneme, 
-                                                      node1->state->center, cp_->num_hidden(0), true), 
+          new ThinState(node.state->dictionary->add(time, old_phoneme, 
+                                                      node.state->center, 
+                                                      cp_->num_hidden(0), 
+                                                      false), 
                         center);
         
-        new_beam->Add(Node<ThinState>(score1, heuristic1, new_state));
-        pointer1++;
-      } else if (node2 != NULL) {
-        new_beam->Add(Node<ThinState>(score2, heuristic2, node2->state));
-        pointer2++;
+        new_beam->Add(Node<ThinState>(score1, heuristic1, new_state),
+                      new_state->hash(cp_->num_hidden(0)));
+      } else {
+        const Node<ThinState> &node =  cur_beam.element(simple.i);
+        double score = new_stay_score(time, state, node);
+        double heuristic2 = heuristic(time, state, node);
+        new_beam->Add(Node<ThinState>(score, heuristic2, node.state),
+                      node.state->hash(cp_->num_hidden(0)));
       }
-    } while ((node1 != NULL || node2 != NULL) && 
-             new_beam->elements() < new_beam->k());
+    }
+
+    /* int pointer = 0, pointer2 = 0; */
+    
+    /* const Node<ThinState> *node1, *node2; */
+    /* do { */
+    /*   node1 = (pointer1 < one.elements()) ? (&one.element(pointer1)) : (NULL); */
+    /*   node2 = (pointer2 < two.elements()) ? (&two.element(pointer2)) : (NULL); */
+    /*   double score1 = INF; */
+    /*   double heuristic1 = INF; */
+    /*   int center = -1; */
+    /*   if (node1 != NULL) { */
+    /*     int phoneme = cp_->MapState(state); */
+    /*     center = node1->state->dictionary->center(phoneme); */
+    /*     heuristic1 = heuristic_->score(time, state, center); */
+    /*     score1 = new_switch_score(time, state, *node1, center); */
+    /*   } */
+                                               
+    /*   double score2 = INF; */
+    /*   double heuristic2 = INF; */
+    /*   if (node2 != NULL) { */
+    /*     score2 = new_stay_score(time, state, *node2); */
+    /*     heuristic2 = heuristic(time, state, *node2); */
+    /*   } */
+    /*   if (score1 + heuristic1 < score2 + heuristic2) { */
+    /*     // Extend node1. */
+    /*     int old_phoneme = cp_->MapState(state - 1); */
+    /*     ThinState *new_state =  */
+    /*       new ThinState( */
+    /*                     node1->state->dictionary->add(time, old_phoneme,  */
+    /*                                                   node1->state->center, cp_->num_hidden(0), true),  */
+    /*                     center); */
+        
+    /*     new_beam->Add(Node<ThinState>(score1, heuristic1, new_state)); */
+    /*     pointer1++; */
+    /*   } else if (node2 != NULL) { */
+    /*     new_beam->Add(Node<ThinState>(score2, heuristic2, node2->state)); */
+    /*     pointer2++; */
+    /*   } */
+    /* } while ((node1 != NULL || node2 != NULL) &&  */
+    /*          new_beam->elements() < new_beam->k()); */
   }
 };
 

@@ -2,6 +2,14 @@
 #include <time.h>
 
 Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
+  return NULL;
+}
+
+double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact, 
+                             const HiddenSolver &hidden_solver,
+                             const Reparameterization &delta_hmm,
+                             const Reparameterization &delta_hidden,
+                             double upper_bound) {
   // Compute Heuristic
   cerr << cp_.num_states << " " << cp_.num_steps << endl;
   Viterbi viterbi(cp_.num_states, 
@@ -9,6 +17,38 @@ Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
                   cp_.num_hidden(0), 
                   1);
   viterbi.Initialize();
+
+  vector<bool> first_seen(cp_.num_states, true);
+  for (int i = 0; i < cp_.num_states; ++i) {
+    for (int j = i - 1; j >= 0; --j) {
+      if (cp_.MapState(i) == cp_.MapState(j)) {
+        first_seen[i] = false;
+        break;
+      }
+    }
+  }
+  double best_dual_cluster = 0;
+  vector<double> best(cp_.num_types(), INF);
+  for (int l = 0; l < cp_.num_types(); ++l) {
+    for (int c = 0; c < cp_.num_hidden(l); ++c) {
+      double cost = hidden_solver.DualCost(l, c); 
+      if (cost < best[l]) {
+        best[l] = cost; 
+      }
+    }
+    best_dual_cluster += best[l];
+  }
+
+  double cur_dual_cluster = best_dual_cluster;
+  vector<double> state_heuristic(cp_.num_states); 
+  for (int i = 0; i < cp_.num_states; ++i) {
+    if (first_seen[i]) {
+      cur_dual_cluster -= best[cp_.MapState(i)];
+    }
+    state_heuristic[i] = cur_dual_cluster;
+  }
+  
+
 
   // Update semi_markov weights with hidden scores.
   for (int m = 0; m < cp_.num_steps; m++) {
@@ -19,7 +59,9 @@ Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
   }
   for (int i = 0; i < cp_.num_states; i++) {
     for (int c = 0; c < cp_.num_hidden(0); ++c) {
-      viterbi.set_lambda(i, c, (*reparameterization_)[i][c]);
+      int l = cp_.MapState(i);
+      viterbi.set_lambda(i, c, (*reparameterization_)[i][c] +  
+                         delta_hmm.get(problem_, l, c) + delta_hidden.get(problem_, l, c));
     }
   }
   viterbi.ForwardScores();
@@ -31,7 +73,13 @@ Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
   
   for (int i = 0; i < cp_.num_states; i++) {
     for (int c = 0; c < cp_.num_hidden(0); ++c) {
-      scorer->set_lambda(i, c, (*reparameterization_)[i][c]);
+      double lambda = (*reparameterization_)[i][c];
+      int l = cp_.MapState(i);
+      if (first_seen[i]) {
+        lambda += hidden_solver.DualCost(l, c);
+      }
+      lambda += delta_hmm.get(problem_, l, c) + delta_hidden.get(problem_, l, c);
+      scorer->set_lambda(i, c, lambda);
     }
   }
 
@@ -41,7 +89,8 @@ Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
       for (int c = 0; c < cp_.num_hidden(0); ++c) {
         double score = distances_.get_distance(m, c);
         scorer->set_score(m, i, c, score);
-        heuristic->set_score(m, i, c, viterbi.backward_from_state(m, i, c) - score);
+        heuristic->set_score(m, i, c, 
+                             viterbi.backward_from_state(m, i, c) - score + state_heuristic[i]);
       }
     }
   }
@@ -61,22 +110,31 @@ Search<HMMState, Expander> *HMMAStarSolver::InitializeAStar(bool exact) {
   round_++;
   Expander *expander = new Expander(scorer, heuristic, &cp_, enforced_constraints_);
   Search<HMMState, Expander> *search;
-  if (!exact) {
-    search = new BeamMemory(expander, 200);
-  } else {
-    search = new AStarMemory(expander);
-  }
-  return search;
-}
+  //if (!exact) {
+    // TEST
+    search = new BeamMemory(expander, 10);
+    
+    FastBeamSearch<ThinState> *fbs = 
+      new FastBeamSearch<ThinState>(cp_.num_states, cp_.num_steps, cp_.num_hidden(0));
+    fbs->Initialize();
+    ThinState state;
+    Merger merger(scorer, heuristic, &cp_);
+  // } else {
+  //   search = new AStarMemory(expander);
+  // }
 
 
-double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact) {
-  Search<HMMState, Expander> *astar = InitializeAStar(exact);
+
+  //Search<HMMState, Expander> *astar = InitializeAStar(exact);
 
   // Run the semi-markov model.
-  HMMState state;
   int rounds = 0;
-  double score = astar->Run(&state, &rounds);
+  double score = fbs->Run(1000, merger, &state, upper_bound, exact);
+  cerr << "SCORE: " << score << endl;
+  state.dictionary->show();
+  cerr << endl;
+
+  cerr << "ASCORE: " << score << endl;
   cerr << "AStar rounds: "<<  rounds << endl;
   state.dictionary->show();
   cerr << endl;
@@ -107,7 +165,7 @@ double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact) {
   cerr << endl;
   // assert(fabs(score - check_score) < 1e-4);
   // delete viterbi;
-  delete astar;
+  delete search;
   return score;
 }
 

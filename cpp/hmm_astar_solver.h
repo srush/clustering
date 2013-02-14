@@ -7,16 +7,21 @@
 #include "span_chart.h"
 #include "speech_solution.h"
 #include "astar_memory.h"
+#include "hidden_solver.h"
 
 class HMMAStarSolver {
  public:
  HMMAStarSolver(const ClusterProblem &cp, 
-                const ThinDistanceHolder &distances) 
-   : cp_(cp), distances_(distances), conflicts_(cp.num_types(), false), enforced_constraints_(cp.num_types(), false), enforced_(0), round_(0) {}
+                const ThinDistanceHolder &distances,
+                int problem) 
+   : cp_(cp), distances_(distances), conflicts_(cp.num_types(), false), enforced_constraints_(cp.num_types(), false), enforced_(0), round_(0) , problem_(problem) {}
 
   // Return the min score through the path and 
   // an alignment of timesteps to states.  
-  double Solve(SpeechAlignment *alignment, bool exact);
+  double Solve(SpeechAlignment *alignment, bool exact, const HiddenSolver &solver, 
+               const Reparameterization &delta_hmm,
+               const Reparameterization &delta_hidden,
+               double upper_bound);
 
   void set_reparameterization(const vector<vector<double> > *reparameterization) {
     reparameterization_ = reparameterization;
@@ -42,6 +47,7 @@ class HMMAStarSolver {
   vector<bool> enforced_constraints_;
   int enforced_;
   int round_;
+  int problem_;
 };
 
 #endif

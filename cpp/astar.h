@@ -209,22 +209,21 @@ template<typename STATE, typename EXPANDER>
       (*node) = *it;
       if (expander_->is_final(*node)) return false;
       vector<Node<STATE> > children;
-      int next_order = expander_->order_next_state(*node);
-      bool use_worst = true;
+      expander_->order_next_state(*node);
+      //int next_order = 
+      bool use_worst = false;
       double worst = 0.0;
-      if (!queue_[next_order].empty()) {
-        if (BeamFull(queue_[next_order])) {
-          worst = WorstBeam(queue_[next_order]);
-          worst = min(BestBeam(queue_[next_order]) + 50, worst);
-        } else {
-          worst = BestBeam(queue_[next_order]) + 50;
-        }
-        //cerr << worst << endl;
-        //cerr << worst << " " << BestBeam(queue_[next_order]) << endl; 
-        worst = min(worst, 700.0);
-      } else {
-        worst = 700.0;
-      }
+      /* if (!queue_[next_order].empty()) { */
+      /*   if (BeamFull(queue_[next_order])) { */
+      /*     worst = WorstBeam(queue_[next_order]); */
+      /*     worst = min(BestBeam(queue_[next_order]) + 50, worst); */
+      /*   } else { */
+      /*     worst = BestBeam(queue_[next_order]) + 50; */
+      /*   } */
+      /*   worst = min(worst, 700.0); */
+      /* } else { */
+      /*   worst = 700.0; */
+      /* } */
 
       expander_->Expand(*node, &children, use_worst, worst);
       rounds_++;

@@ -51,6 +51,10 @@ class HiddenSolver {
   int TypeToHidden(int type, int mode) {
     return best_hidden_[mode][type];
   }
+
+  double DualCost(int type, int hidden) const {
+    return hidden_costs_[type][hidden];
+  }
                       
  private:
   

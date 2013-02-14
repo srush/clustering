@@ -425,6 +425,10 @@ class Merger : public BaseMerger<ThinState> {
   void Initialize(Beam<ThinState> *start) const {
     ThinState *state = new ThinState(new DictTree(), -1);
     start->Add(Node<ThinState>(0, 0, state), 0);
+    simple_time_ = 0;
+    complex_time_ = 0;
+    simple_counts_ = 0;
+    complex_counts_ = 0;
   }
 
   void MergeBeams(int time, int state, 
@@ -435,10 +439,21 @@ class Merger : public BaseMerger<ThinState> {
     int phoneme = cp_->MapState(state);
     if (last.elements() == 0 ||
         last.element(0).state->dictionary->center(phoneme) != -1) {
+      clock_t start = clock();
       SimpleMerge(time, state, last, cur, new_beam);
+      simple_time_ += clock() - start;
+      simple_counts_++;
     } else {
+      clock_t start = clock();
       ComplexMerge(time, state, last, cur, new_beam);
+      complex_time_ += clock() - start;
+      complex_counts_++;
     }
+  }
+
+  void show_stats() const {
+    cerr << complex_time_ << " " << complex_counts_ << endl;
+    cerr << simple_time_ << " " << simple_counts_ << endl;
   }
 
  private:
@@ -497,6 +512,8 @@ class Merger : public BaseMerger<ThinState> {
                    const Beam<ThinState> &last_beam, 
                    const Beam<ThinState> &cur_beam, 
                    Beam<ThinState> * new_beam) const {
+
+    // Order the centers.
     vector<pair<double, int> >ordered_centers(cp_->num_hidden(0));
     for (int c = 0; c < cp_->num_hidden(0); ++c) {
       double extra_score = scorer_->score(time, state, c) + 
@@ -505,10 +522,8 @@ class Merger : public BaseMerger<ThinState> {
       ordered_centers[c] = pair<double, int>(extra_score, c);
     }
     sort(ordered_centers.begin(), ordered_centers.end());
-    //for (uint i = 0; i < ordered_centers.size(); ++i) {
-      //cerr << i << " " << ordered_centers[i].second << " " << ordered_centers[i].first << endl;
-    //} 
 
+    // Order the current elements.
     vector<pair<double, int> >ordered_cur(cur_beam.elements());
     for (int i = 0; i < cur_beam.elements(); ++i) {
       const Node<ThinState> &node =  cur_beam.element(i);
@@ -517,6 +532,7 @@ class Merger : public BaseMerger<ThinState> {
     }
     sort(ordered_cur.begin(), ordered_cur.end());
 
+    // Order the last elements.
     vector<pair<double, int> >ordered_last(last_beam.elements());
     for (int i = 0; i < last_beam.elements(); ++i) {
       const Node<ThinState> &node =  last_beam.element(i);
@@ -524,10 +540,9 @@ class Merger : public BaseMerger<ThinState> {
     }
     sort(ordered_last.begin(), ordered_last.end());
 
-    // The current centers for nodes in last_berm
+    // The current centers for nodes in last_beam
     vector<int> pointer_leave(1, 0);
     
-
     // The current position for nodes in ordered_cur.
     int pointer_stay = 0;
 
@@ -547,27 +562,34 @@ class Merger : public BaseMerger<ThinState> {
       Next next(false, 0, total);
       queue.push(next);
     }
+
     while (!queue.empty() && !new_beam->Finished()) {
       Next next = queue.top();
       queue.pop();
       if (next.stay) {
         // Add node from cur_beam.
-        Node<ThinState> old_node = 
+        const Node<ThinState> &old_node = 
           cur_beam.element(ordered_cur[pointer_stay].second);
         int center = old_node.state->center;
         double heu = heuristic_->score(time, state, center);
         double score = new_stay_score(time, state, old_node);
         assert(score + heu == next.score);
-        Node<ThinState> new_node(score, heu, old_node.state);
-        new_beam->Add(new_node, old_node.state->hash(cp_->num_hidden(0)));
+        int hash = old_node.state->hash(cp_->num_hidden(0));
+        if (!new_beam->HasHash(hash)) {
+          Node<ThinState> new_node(score, heu, old_node.state);
+          new_beam->Add(new_node, hash);
+        }
         pointer_stay++;
         if (pointer_stay < cur_beam.elements()) {
           /* double total =  */
           /*   total_stay(time, state,  */
           /*              cur_beam.element(ordered_cur[pointer_stay])); */
           //cerr << "total " << total << endl;
-          Next new_next(true, -1, ordered_cur[pointer_stay].first);
-          queue.push(new_next);
+          double total = ordered_cur[pointer_stay].first;
+          if (new_beam->InUpperRange(total)) {
+            Next new_next(true, -1, total);
+            queue.push(new_next);
+          }
         }
       } else {
         // Add node from last beam.
@@ -587,8 +609,11 @@ class Merger : public BaseMerger<ThinState> {
                                             old_node.state->center, 
                                             cp_->num_hidden(0), true);
           ThinState *new_state = new ThinState(tree, center);
-          new_beam->Add(Node<ThinState>(score, heu, new_state),
-                        new_state->hash(cp_->num_hidden(0)));
+          int hash = new_state->hash(cp_->num_hidden(0));
+          if (!new_beam->HasHash(hash)) {
+            new_beam->Add(Node<ThinState>(score, heu, new_state),
+                          hash);
+          }
         } else {
           ThinState *new_state = 
             new ThinState(old_node.state->dictionary,
@@ -603,8 +628,10 @@ class Merger : public BaseMerger<ThinState> {
             total_switch(time, state, 
                          last_beam.element(ordered_last[next.go].second), 
                          ordered_centers[pointer_leave[next.go]].second); 
-          Next new_next(false, next.go, total);
-          queue.push(new_next);
+          if (new_beam->InUpperRange(total)) {
+            Next new_next(false, next.go, total);
+            queue.push(new_next);
+          }
         }
         
         
@@ -615,8 +642,10 @@ class Merger : public BaseMerger<ThinState> {
             total_switch(time, state, 
                          last_beam.element(ordered_last[next.go + 1].second),
                          ordered_centers[0].second); 
-          Next new_next(false, next.go + 1, total);
-          queue.push(new_next);
+          if (new_beam->InUpperRange(total)) {
+            Next new_next(false, next.go + 1, total);
+            queue.push(new_next);
+          }
         } 
       } 
     } 
@@ -726,6 +755,11 @@ class Merger : public BaseMerger<ThinState> {
     /* } while ((node1 != NULL || node2 != NULL) &&  */
     /*          new_beam->elements() < new_beam->k()); */
   }
+
+  mutable clock_t simple_time_;
+  mutable clock_t complex_time_; 
+  mutable int simple_counts_;
+  mutable int complex_counts_; 
 };
 
 typedef AStar<HMMState, Expander> AStarMemory;

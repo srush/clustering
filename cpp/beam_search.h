@@ -28,6 +28,14 @@ class Beam {
     beam_.push_back(node);
     return true;
   }
+
+  bool InUpperRange(double score) {
+    return score <= upper_;
+  }
+
+  bool HasHash(int hash) {
+    return hash_[abs(hash % (int)hash_.size())];
+  }
   
   bool Finished() {
     return elements() == k_ || finished_;
@@ -53,7 +61,7 @@ class BaseMerger {
   virtual void MergeBeams(int time, int state, const Beam<STATE> &one, 
                   const Beam<STATE> &two, 
                   Beam<STATE> * new_beam) const = 0;
-
+  virtual void show_stats() const = 0;
 };
 
 template <class STATE>  
@@ -79,8 +87,8 @@ class FastBeamSearch {
       for (int state = 0; state < num_states_; ++state) {
         if (!exact) {
           chart_[time][state].set_k(k);
-          chart_[time][state].set_upper(upper_bound + 100);
-          chart_[time][state].set_hash(1000);
+          chart_[time][state].set_upper(upper_bound + 10);
+          chart_[time][state].set_hash(100000);
         } else { 
           //chart_[time][state].set_k(k);
           chart_[time][state].set_upper(upper_bound);
@@ -113,17 +121,21 @@ class FastBeamSearch {
                             &chart_[time][state]);
         }
         if (chart_[time][state].elements() > 0) {
-          /* cerr << time << " " << state << " " << */
-          /*   chart_[time][state].element(0).total() << " " << */
-          /*   chart_[time][state].element(0).score << " " << */
-          /*   chart_[time][state].element(0).heuristic << endl; */
+          /* cerr << time << "\t" << state << "\t" << */
+          /*   chart_[time][state].element(0).total() << "\t" << */
+          /*   chart_[time][state].element(0).score << "\t" << */
+          /*   chart_[time][state].element(0).heuristic << "\t" <<  */
+          /*   chart_[time][state].elements() << endl; */
           /* for (int i = 0; i < chart_[time][state].elements(); ++i) { */
           /*   chart_[time][state].element(i).state->to_string(); */
           /* } */
         }
       }
-   } 
+      cerr << time << endl; 
+    } 
+
     cerr << "TIME: Beam search round: " << clock() - start  << " " << upper_bound << endl;
+    merger.show_stats();
     *state = *chart_[num_steps_ - 1][num_states_ - 1].element(0).state;
     cerr << chart_[num_steps_ - 1][num_states_ - 1].element(0).heuristic;
     return chart_[num_steps_ - 1][num_states_ - 1].element(0).score;

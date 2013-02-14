@@ -44,8 +44,8 @@ class Search {
 template<typename STATE, typename EXPANDER>
   class AStar : public Search<STATE, EXPANDER> {
  public:
-  AStar(const EXPANDER *expander)
-    : expander_(expander), hash_(HASH_SIZE, false), hash_score_(HASH_SIZE) {}
+ AStar(const EXPANDER *expander, double upper_bound)
+   : expander_(expander), hash_(HASH_SIZE, false), hash_score_(HASH_SIZE), upper_bound_(upper_bound) {}
 
   virtual double Run(STATE *state, int *rounds) {
     Node<STATE> *start = expander_->start();
@@ -80,7 +80,7 @@ template<typename STATE, typename EXPANDER>
       time_ = clock();
     }
     vector<Node<STATE> > children;
-    expander_->Expand(*node, &children, true, 500.0);
+    expander_->Expand(*node, &children, true, upper_bound_);
     for (unsigned int i = 0; i < children.size(); ++i) {
       Node<STATE> state = children[i];
       int child_hash = abs(expander_->hash(state) % HASH_SIZE);
@@ -102,6 +102,7 @@ template<typename STATE, typename EXPANDER>
   vector<bool> hash_;
   vector<double> hash_score_;
   int time_; 
+  double upper_bound_;
 };
 
 template<typename STATE, typename EXPANDER>

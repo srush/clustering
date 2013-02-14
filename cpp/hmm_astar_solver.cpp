@@ -110,37 +110,43 @@ double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact,
   round_++;
   Expander *expander = new Expander(scorer, heuristic, &cp_, enforced_constraints_);
   Search<HMMState, Expander> *search;
-  //if (!exact) {
+  const DictTree *dictionary = NULL;
+  double score = 0.0;
+  int rounds = 0;
+  if (!exact) {
     // TEST
-    search = new BeamMemory(expander, 10);
+    //search = new BeamMemory(expander, 10);
     
     FastBeamSearch<ThinState> *fbs = 
       new FastBeamSearch<ThinState>(cp_.num_states, cp_.num_steps, cp_.num_hidden(0));
     fbs->Initialize();
     ThinState state;
     Merger merger(scorer, heuristic, &cp_);
-  // } else {
-  //   search = new AStarMemory(expander);
-  // }
+    //Search<HMMState, Expander> *astar = InitializeAStar(exact);
+    
+    // Run the semi-markov model.
 
+    score = fbs->Run(1000, merger, &state, upper_bound, exact);
+    dictionary = state.dictionary;
+  } else {
+    HMMState state;
+    search = new AStarMemory(expander, upper_bound);
+    score = search->Run(&state, &rounds);
+  }
 
-
-  //Search<HMMState, Expander> *astar = InitializeAStar(exact);
-
-  // Run the semi-markov model.
-  int rounds = 0;
-  double score = fbs->Run(1000, merger, &state, upper_bound, exact);
   cerr << "SCORE: " << score << endl;
-  state.dictionary->show();
+  dictionary->show();
   cerr << endl;
 
   cerr << "ASCORE: " << score << endl;
   cerr << "AStar rounds: "<<  rounds << endl;
-  state.dictionary->show();
+  dictionary->show();
   cerr << endl;
 
+
+
   vector<int> *align = alignment->mutable_alignment();
-  state.dictionary->DumpToAlignment(align);
+  dictionary->DumpToAlignment(align);
   align->push_back(cp_.num_steps);
 
   // double score = 
@@ -152,12 +158,12 @@ double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact,
   hidden->resize(cp_.num_states);
   for (int i = 0; i < cp_.num_states ; ++i) {
     int type  = cp_.MapState(i);
-    (*hidden)[i] = state.dictionary->center(type);
+    (*hidden)[i] = dictionary->center(type);
   }
   
   conflicts_.clear();
   conflicts_.resize(cp_.num_types(), 0);
-  state.dictionary->FillConflicts(&conflicts_);
+  dictionary->FillConflicts(&conflicts_);
   cerr << "Conflicts: "; 
   for (int t = 0; t < cp_.num_types(); ++t) {
     if (conflicts_[t]) cerr << t << " ";
@@ -165,7 +171,7 @@ double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact,
   cerr << endl;
   // assert(fabs(score - check_score) < 1e-4);
   // delete viterbi;
-  delete search;
+  //delete search;
   return score;
 }
 

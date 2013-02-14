@@ -356,7 +356,7 @@ void SpeechSubgradient::BeamSearch() {
   vector<DataPoint> centroids;
   double primal_value = Primal(&solution, 1, &centroids);
   cerr << "Beam " << primal_value << " " << dual << endl;
-  if (primal_value < dual ) {
+  if (dual < best_primal_value_ ) {
     best_primal_value_ = dual;
   } 
 
@@ -416,7 +416,7 @@ void SpeechSubgradient::MPLPRound(int round) {
   // Compute the primal solution. 
   vector<DataPoint> centroids;
   double primal_value = Primal(dual_solution, round, &centroids);
-  //if (primal_value < best_primal_value_) best_primal_value_ = primal_value;
+  if (primal_value < best_primal_value_) best_primal_value_ = primal_value;
   if (dual_value > best_dual_value_) best_dual_value_ = dual_value;
   // if ((round + 1) % 25 == 0) {
   //   LocalSearch(dual_solution);

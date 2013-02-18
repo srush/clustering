@@ -125,13 +125,14 @@ double HMMAStarSolver::Solve(SpeechAlignment *alignment, bool exact,
     //Search<HMMState, Expander> *astar = InitializeAStar(exact);
     
     // Run the semi-markov model.
-
-    score = fbs->Run(1000, merger, &state, upper_bound, exact);
+    bool fail = false;
+    score = fbs->Run(1000, merger, &state, upper_bound, exact, &fail);
     dictionary = state.dictionary;
   } else {
     HMMState state;
     search = new AStarMemory(expander, upper_bound);
     score = search->Run(&state, &rounds);
+    dictionary = state.dictionary;
   }
 
   cerr << "SCORE: " << score << endl;

@@ -80,7 +80,8 @@ template<typename STATE, typename EXPANDER>
       time_ = clock();
     }
     vector<Node<STATE> > children;
-    expander_->Expand(*node, &children, true, upper_bound_);
+    //cerr << "upper bound: " << upper_bound_ << endl;
+    expander_->Expand(*node, &children, true, upper_bound_ + 10);
     for (unsigned int i = 0; i < children.size(); ++i) {
       Node<STATE> state = children[i];
       int child_hash = abs(expander_->hash(state) % HASH_SIZE);

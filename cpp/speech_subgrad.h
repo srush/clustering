@@ -8,6 +8,7 @@
 #include "recenter_solver.h"
 #include "hmm_viterbi_solver.h"
 #include "hmm_astar_solver.h"
+#include "hmm_beam_search_solver.h"
 #include "subgrad.h"
 #include "speech_problem.h"
 #include "hidden_kmedian_solver.h"
@@ -79,7 +80,7 @@ class SpeechSubgradient {//: public SubgradProblem {
 
   // The decomposition of the hmm part of the problem.
   HiddenSolver *hidden_solver_;
-
+  HMMBeamSearchSolver *hmm_beam_search_solver_;
   vector<KMediansSolver * > kmedian_solvers_;
 
   // Precomputed terms for solvers.

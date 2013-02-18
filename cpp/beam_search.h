@@ -81,7 +81,7 @@ class FastBeamSearch {
     //chart_[0][0].Add();
   }
 
-  double Run(int k, const BaseMerger<STATE> &merger, STATE *state, double upper_bound, bool exact) {
+  double Run(int k, const BaseMerger<STATE> &merger, STATE *state, double upper_bound, bool exact, bool *fail) {
     clock_t start = clock();
     for (int time = 0; time < num_steps_; ++time) {
       for (int state = 0; state < num_states_; ++state) {
@@ -131,14 +131,24 @@ class FastBeamSearch {
           /* } */
         }
       }
-      cerr << time << endl; 
+      if (exact) cerr << time << endl; 
     } 
 
     cerr << "TIME: Beam search round: " << clock() - start  << " " << upper_bound << endl;
     merger.show_stats();
-    *state = *chart_[num_steps_ - 1][num_states_ - 1].element(0).state;
-    cerr << chart_[num_steps_ - 1][num_states_ - 1].element(0).heuristic;
-    return chart_[num_steps_ - 1][num_states_ - 1].element(0).score;
+    if (chart_[num_steps_ - 1][num_states_ - 1].elements() == 0) {
+      *fail = true; 
+      return 0;
+    } else {
+      *fail = false; 
+      *state = *chart_[num_steps_ - 1][num_states_ - 1].element(0).state;
+      cerr << chart_[num_steps_ - 1][num_states_ - 1].element(0).heuristic;
+      return chart_[num_steps_ - 1][num_states_ - 1].element(0).score;
+    }
+  }
+
+  Beam<STATE> final() {
+    return chart_[num_steps_ - 1][num_states_ - 1];
   }
 
  private:

@@ -369,7 +369,7 @@ class Expander {
         double score = start.score + 
           scorer_->score(new_timestep, new_state, center) + 
           scorer_->lambda(new_state, center);
-        if (!use_worst || heuristic + score < worst) {
+        if (!use_worst || heuristic + score <= worst) {
           HMMState *state = 
             new HMMState(new_dictionary, new_timestep, new_state, center); 
           children->push_back(Node<HMMState>(score, heuristic, state));    
@@ -382,7 +382,7 @@ class Expander {
           double score = start.score + 
             scorer_->score(new_timestep, new_state, center) + 
             scorer_->lambda(new_state, center); 
-          if (!use_worst || heuristic + score < worst) {
+          if (!use_worst || heuristic + score <= worst) {
             HMMState *hmm_state = 
               new HMMState(new_dictionary, new_timestep, new_state, center);
             children->push_back(Node<HMMState>(score, heuristic, hmm_state));
@@ -419,12 +419,21 @@ class Merger : public BaseMerger<ThinState> {
          const ClusterProblem *cp) 
     : scorer_(scorer),
     heuristic_(heuristic),
-    cp_(cp)
+    cp_(cp),
+    start_(NULL)
     {}
   
+  void set_start_beam(Beam<ThinState> *start) {
+    start_ = start;
+  }
+
   void Initialize(Beam<ThinState> *start) const {
-    ThinState *state = new ThinState(new DictTree(), -1);
-    start->Add(Node<ThinState>(0, 0, state), 0);
+    if (start_ != NULL) {
+      *start = *start_;
+    } else {
+      ThinState *state = new ThinState(new DictTree(), -1);
+      start->Add(Node<ThinState>(0, 0, state), 0);
+    }
     simple_time_ = 0;
     complex_time_ = 0;
     simple_counts_ = 0;
@@ -760,6 +769,7 @@ class Merger : public BaseMerger<ThinState> {
   mutable clock_t complex_time_; 
   mutable int simple_counts_;
   mutable int complex_counts_; 
+  Beam<ThinState> *start_;
 };
 
 typedef AStar<HMMState, Expander> AStarMemory;

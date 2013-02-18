@@ -13,7 +13,7 @@ env.Append(CPPPATH =('.', "/home/alexanderrush/libs/gurobi510/linux64/include",
 #            CPPFLAGS=['-Werror','-Wall','-g', '-fstack-protector-all'])
 
 env.Append(
-           CPPFLAGS=['-Werror', '-Wall', '-O2'])
+           CPPFLAGS=['-Werror', '-Wall', '-O2', '-DNDEBUG'])
 
 
 #env['BUILDERS']['Protoc'] = Builder(action = ProtocBuilder)
@@ -58,7 +58,8 @@ cluster = env.Library('cluster',
                        'beam_search.cpp', 
                        'astar_memory.cpp', 
                        "speech_kmeans.cpp", 
-                       "hmm_astar_solver.cpp", 
+                       "hmm_astar_solver.cpp",
+                       "hmm_beam_search_solver.cpp", 
                        "speech_solution.cpp", "speech_subgrad.cpp", span, semi, proto, distance, viterbi],
                       
 LIBS = [span, semi, proto, distance, viterbi, local.gurobi_lib, "gurobi_c++", "km"])

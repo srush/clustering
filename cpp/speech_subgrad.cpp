@@ -23,6 +23,8 @@ SpeechSubgradient::SpeechSubgradient(const SpeechProblemSet &problems)
   }
 
   hidden_solver_ = new HiddenSolver(cluster_problems_);
+  hmm_beam_search_solver_ = 
+    new HMMBeamSearchSolver(cluster_problems_, distance_holders_);
 
   // MPLP variables
   hidden_reparameterization_ = cluster_problems_.CreateReparameterization();
@@ -41,6 +43,7 @@ void SpeechSubgradient::SetMPLPUpdateParams() {
     hmm_astar_solvers_[problem]->set_reparameterization(hmm_reparameterization_->problem(problem));
   }
   hidden_solver_->set_reparameterization(hidden_reparameterization_);
+  hmm_beam_search_solver_->set_reparameterization(hmm_reparameterization_);
 }
 
 void SpeechSubgradient::SetNaturalParams() {
@@ -49,6 +52,7 @@ void SpeechSubgradient::SetNaturalParams() {
     hmm_astar_solvers_[problem]->set_reparameterization(hmm_reparameterization2_->problem(problem));
   }
   hidden_solver_->set_reparameterization(hidden_reparameterization2_);
+  hmm_beam_search_solver_->set_reparameterization(hmm_reparameterization2_);
 }
 
 double SpeechSubgradient::Primal(SpeechSolution *dual_proposal, 
@@ -348,16 +352,17 @@ void SpeechSubgradient::MPLPRunSubgrad(int round) {
 
 void SpeechSubgradient::BeamSearch() {
   SpeechSolution solution(cluster_problems_);
-  double dual = 0.0;
-  for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
-    SpeechAlignment *alignment = solution.mutable_alignment(u);
-    dual += hmm_astar_solvers_[u]->Solve(alignment, false, *hidden_solver_, *delta_hmm_, *delta_hidden_, best_primal_value_);
-  }
-  vector<DataPoint> centroids;
-  double primal_value = Primal(&solution, 1, &centroids);
-  cerr << "Beam " << primal_value << " " << dual << endl;
-  if (dual < best_primal_value_ ) {
-    best_primal_value_ = dual;
+  double primal = 0.0;
+  //for (int u = 0; u < cluster_problems_.problems_size(); ++u) {
+  //SpeechAlignment *alignment = solution.mutable_alignment(u);
+  primal += hmm_beam_search_solver_->Solve(&solution, false, *hidden_solver_, *delta_hmm_, 
+                                         *delta_hidden_, best_primal_value_);
+    //}
+  //vector<DataPoint> centroids;
+  //double primal_value = Primal(&solution, 1, &centroids);
+  //cerr << "Beam " << primal_value << " " << dual << endl;
+  if (primal < best_primal_value_ ) {
+    best_primal_value_ = primal;
   } 
 
 }
@@ -389,7 +394,7 @@ void SpeechSubgradient::LocalSearch(SpeechSolution *dual_solution) {
 
 // Runs a round of MPLP. 
 void SpeechSubgradient::MPLPRound(int round) {
-  if (round > 500) {
+  if (round > 1000) {
     // MPLPRunSubgrad(round);
     SetNaturalParams();
     SpeechSolution *dual_solution = new SpeechSolution(cluster_problems_);
@@ -418,10 +423,10 @@ void SpeechSubgradient::MPLPRound(int round) {
   double primal_value = Primal(dual_solution, round, &centroids);
   if (primal_value < best_primal_value_) best_primal_value_ = primal_value;
   if (dual_value > best_dual_value_) best_dual_value_ = dual_value;
-  // if ((round + 1) % 25 == 0) {
+  // if (round > 30 && (round + 1) % 25 == 0) {
   //   LocalSearch(dual_solution);
   // }
-  if (round > 30 && (round + 1) % 50 == 0) {
+  if (round > 30 && (round + 1) % 100 == 0) {
     BeamSearch();
   }
   // Log the dual and primal values.
